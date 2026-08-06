@@ -178,20 +178,57 @@ token underneath a running CLI session.
 
 ---
 
-## Open questions
+## Settled by the usage log
 
-1. ~~**7d window semantics.**~~ **Settled** by the UI comparison above — it is a fixed
-   weekly window, labelled "All models", and the official UI shows a plain countdown to it.
-   The 9-hour figure was this week's window nearing its end, not a rolling edge. A
-   countdown label is safe.
+103 readings over ~26 hours, 2026-08-05 → 2026-08-07.
 
-2. **Do ClawBar's own polls anchor a 5h window?** Still open, and still drives the whole
-   poll policy. Confirm by watching whether `5h-reset` advances during a period of pure
-   idle heartbeat with no Claude Code use.
+### 1. Weekly window — fixed 7-day window. CONFIRMED.
 
-3. **Does a genuine plan-limit rejection also return a bare 429?** The observed 429s were
-   model gating. If quota exhaustion behaves the same, the app must survive on cached
-   state at the limit. Assume yes until observed otherwise — it is the safe assumption.
+```
+Thu 06 Aug 05:00 -> Thu 13 Aug 05:00   (+7.000 days)
+
+Thu 06 Aug 04:48  weekly 21%
+Thu 06 Aug 05:03  weekly  0%   <- straight to zero, not a partial step-down
+```
+
+Exactly seven days, and utilization dropped to zero rather than stepping down as an
+oldest-usage-ages-out rolling window would. A plain countdown label is correct.
+
+### 2. Session window — fixed 5 hours, anchored to first use. CONFIRMED.
+
+```
+Thu 06 Aug 03:00 -> 08:00   (+5.00h)
+Thu 06 Aug 08:00 -> 13:00   (+5.00h)
+Thu 06 Aug 13:00 -> 23:40   (+10.67h)   <- gap: nothing ran, then use at 18:40
+Thu 06 Aug 23:40 -> Fri 04:40 (+5.00h)
+```
+
+Exactly five hours each time. Windows do **not** snap to the hour — `23:40` proves the
+anchor is real first use, not a clock boundary.
+
+### 3. Do ClawBar's own polls anchor a session window? YES.
+
+At 08:00 the previous window expired while the machine was idle overnight and only the
+15-minute heartbeat was running. The next window began at exactly 08:00 — the moment of
+ClawBar's poll — and ran to 13:00. Real use did not resume until 08:09, which would have
+produced a 13:09 reset. So the poll, not the user, anchored that window.
+
+**But the practical harm is smaller than assumed.** Across every heartbeat-only stretch,
+`5h-utilization` stayed at `0%`. The polls anchor a window; they do not meaningfully
+consume it. The activity gating in DESIGN.md §2 is still right — for battery, CPU, and
+for keeping the window boundary honest — but the original "manufacturing the usage it
+exists to report" framing overstated it. What it actually manufactures is a *window
+boundary*, not usage.
+
+Anyone who wants their session window aligned strictly to their own first request should
+set idle behaviour to **Off**.
+
+## Still open
+
+**Does a genuine plan-limit rejection also return a bare 429?** The observed 429s were
+model gating. If quota exhaustion behaves the same, the app must survive on cached state
+at the limit. Assume yes until observed otherwise — it is the safe assumption, and the
+`limited` state already implements it.
 
 ### Timestamps as decoded (now = 2026-08-05 09:41 UTC)
 

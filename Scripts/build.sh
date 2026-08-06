@@ -33,9 +33,12 @@ cp "$BIN" "$APP/Contents/MacOS/$APP_NAME"
 sed -e "s/__VERSION__/$VERSION/g" -e "s/__BUILD__/$BUILD/g" \
     "$ROOT/Resources/Info.plist" > "$APP/Contents/Info.plist"
 
+# Info.plist already declares CFBundleIconFile; regenerate the .icns with
+# `swift Scripts/make-icon.swift && iconutil -c icns dist/AppIcon.iconset -o Resources/AppIcon.icns`
 if [ -f "$ROOT/Resources/AppIcon.icns" ]; then
     cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/"
-    /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string AppIcon" "$APP/Contents/Info.plist" 2>/dev/null || true
+else
+    echo "warning: Resources/AppIcon.icns missing — the app will use the generic icon" >&2
 fi
 
 if [ "$SIGN" = "1" ]; then
