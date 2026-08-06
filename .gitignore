@@ -1,0 +1,22 @@
+# Release + notarisation credentials. .env points at an App Store Connect .p8 private
+# key and carries the key id and issuer — never commit it.
+.env
+.env.*
+!.env.example
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# Build output — the signed .app and the notarised DMG are published as release
+# assets, not committed.
+dist/
+
+# Prototype binary (the source beside it is worth keeping)
+prototype/clawbar-prototype
+prototype/*.o
+prototype/run.log
+
+# macOS
+.DS_Store
