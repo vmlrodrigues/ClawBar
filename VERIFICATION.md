@@ -55,8 +55,21 @@ anthropic-organization-id:                         672fbfc5-…   (present on in
 
 Utilization is a 0–1 float at 2dp. Resets are Unix seconds.
 
-`representative-claim` names the currently binding window — the server tells you which
-number matters, so the UI does not have to guess.
+`representative-claim` is **not** what it looks like. It was initially read as naming the
+currently binding window, and the UI was built on that. 110 logged samples say otherwise:
+
+```
+distinct values across 110 readings:  'five_hour': 110
+
+readings where weekly utilization > session:              52
+...of those, how many had claim == 'seven_day':            0
+```
+
+It never varied, including through 52 readings where the weekly window sat at 21% against
+a session at 2%. Whatever it denotes, it is not "the limit closest to stopping you". It
+is still parsed and written to the usage log in case a longer record makes its meaning
+clear, but **nothing in the UI is driven by it**. The popover works out which window is
+nearer its ceiling by comparing the two utilization figures directly.
 
 `fallback-percentage: 0.5` is unexplained. Most plausibly the Opus→Sonnet auto-downgrade
 threshold. Inference, not observation.

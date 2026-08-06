@@ -15,7 +15,7 @@ struct WindowRow: View {
                 Text(title)
                     .font(.system(size: 12, weight: emphasised ? .semibold : .regular))
                 if emphasised {
-                    Text("binding")
+                    Text("closest to limit")
                         .font(.system(size: 9, weight: .medium))
                         .padding(.horizontal, 5).padding(.vertical, 1)
                         .background(Capsule().fill(Color.secondary.opacity(0.18)))
@@ -66,6 +66,25 @@ struct PopoverView: View {
     private func resetLine(_ window: UsageWindow?) -> String {
         guard let window else { return "no data" }
         return "resets \(clockTime(window.resetsAt)) · in \(shortDuration(window.resetsAt.timeIntervalSince(now)))"
+    }
+
+    /// Which window is nearer its ceiling, and therefore the one that will stop you first.
+    ///
+    /// Computed from utilization rather than taken from the server's
+    /// `representative-claim` header. That header read `five_hour` in all 110 logged
+    /// samples — including 52 where the weekly window was the more consumed of the two —
+    /// so whatever it means, it is not "the limit that binds". See VERIFICATION.md.
+    private enum Nearest { case session, weekly, tie }
+
+    private var nearestLimit: Nearest {
+        let session = model.snapshot?.session?.percent
+        let weekly = model.snapshot?.weekly?.percent
+        switch (session, weekly) {
+        case let (s?, w?): return s == w ? .tie : (s > w ? .session : .weekly)
+        case (_?, nil):    return .session
+        case (nil, _?):    return .weekly
+        case (nil, nil):   return .tie
+        }
     }
 
     var body: some View {
@@ -142,13 +161,13 @@ struct PopoverView: View {
             WindowRow(title: "Current session",
                       subtitle: resetLine(model.snapshot?.session),
                       window: model.snapshot?.session,
-                      emphasised: model.snapshot?.representative == "five_hour",
+                      emphasised: nearestLimit == .session,
                       fallbackMarker: model.snapshot?.fallbackPercentage)
 
             WindowRow(title: "All models",
                       subtitle: resetLine(model.snapshot?.weekly),
                       window: model.snapshot?.weekly,
-                      emphasised: model.snapshot?.representative == "seven_day")
+                      emphasised: nearestLimit == .weekly)
 
             // Only meaningful once credits are actually being consumed; the official
             // panel shows no meter at zero either.

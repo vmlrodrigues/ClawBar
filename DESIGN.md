@@ -182,7 +182,7 @@ rather than a decision made for the user, and the picker labels itself with live
 each option can be seen before it is chosen.
 
 Default is Session at `percent · time` — the session window moves on a timescale you can
-act on, and it is what `representative-claim` reports as binding in normal use. Both
+act on — it is the one whose number can change within a working session. Both
 settings persist in `UserDefaults`.
 
 ### Degradation states
@@ -234,7 +234,13 @@ the two never appear to disagree.
 No header exposes it, and requesting a different model does not produce one. ClawBar
 cannot show per-model limits, and should not imply completeness it does not have.
 
-The representative window is visually emphasised. A `fallback-percentage` marker is drawn
+Whichever window is **nearer its ceiling** is visually emphasised and badged "closest to
+limit" — computed by comparing the two utilization figures, not taken from
+`representative-claim` (see VERIFICATION.md; that header never varied across 110 samples,
+including 52 where it disagreed with the numbers). The badge previously read "binding",
+which was both jargon and a claim the data did not support.
+
+A `fallback-percentage` marker is drawn
 on the 5h track (observed `0.5`) behind an off-by-default setting labelled as a guess —
 it most likely marks the Opus→Sonnet auto-downgrade point, but that is inference, not
 observation.
