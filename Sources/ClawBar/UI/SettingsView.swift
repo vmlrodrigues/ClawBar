@@ -3,6 +3,7 @@ import ServiceManagement
 
 struct SettingsView: View {
     @ObservedObject var prefs = Preferences.shared
+    @ObservedObject var updater: UpdaterController
     var onReplaceToken: () -> Void
 
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
@@ -82,10 +83,23 @@ struct SettingsView: View {
                 }
             }
 
+            section("Updates") {
+                Toggle("Check automatically", isOn: $updater.automaticallyChecks)
+                HStack(spacing: 8) {
+                    Button("Check Now") { updater.checkForUpdates() }
+                        .controlSize(.small)
+                        .disabled(!updater.canCheck)
+                    Text(updater.lastCheck.map {
+                        "Last checked \(shortDuration(Date().timeIntervalSince($0))) ago"
+                    } ?? "Never checked")
+                        .font(.system(size: 10)).foregroundStyle(.secondary)
+                }
+            }
+
             Divider()
 
             VStack(alignment: .leading, spacing: 3) {
-                Text("ClawBar \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—")")
+                Text("ClawBar \(updater.version)")
                     .font(.system(size: 10)).foregroundStyle(.secondary)
                 Text("Usage is read from undocumented response headers and may break without notice.")
                     .font(.system(size: 10)).foregroundStyle(.secondary)

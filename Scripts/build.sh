@@ -41,13 +41,44 @@ else
     echo "warning: Resources/AppIcon.icns missing — the app will use the generic icon" >&2
 fi
 
+# ---- Sparkle -----------------------------------------------------------------
+# The framework carries its own nested code: two XPC services, a helper app and the
+# Autoupdate binary. Each needs signing in its own right, innermost first, because a
+# signature covers everything beneath it — sign the framework before its XPC services
+# and the outer signature is immediately invalid.
+SPARKLE_FW="$(find "$ROOT/.build/artifacts/sparkle" -type d -name 'Sparkle.framework' -path '*macos*' 2>/dev/null | head -1)"
+if [ -n "$SPARKLE_FW" ]; then
+    echo "==> Embedding Sparkle ($(basename "$(dirname "$SPARKLE_FW")"))"
+    mkdir -p "$APP/Contents/Frameworks"
+    rm -rf "$APP/Contents/Frameworks/Sparkle.framework"
+    # ditto, not cp: the framework is a symlink farm and cp -R flattens it.
+    ditto "$SPARKLE_FW" "$APP/Contents/Frameworks/Sparkle.framework"
+else
+    echo "error: Sparkle.framework not found — run 'swift package resolve' first" >&2
+    exit 1
+fi
+
 if [ "$SIGN" = "1" ]; then
     echo "==> Signing with: $IDENTITY"
+    FW="$APP/Contents/Frameworks/Sparkle.framework/Versions/B"
+
+    # --preserve-metadata=entitlements: the XPC services ship with their own
+    # entitlements and re-signing without this silently drops them.
+    for xpc in Installer Downloader; do
+        codesign --force --options runtime --timestamp \
+                 --preserve-metadata=entitlements \
+                 --sign "$IDENTITY" "$FW/XPCServices/$xpc.xpc"
+    done
+    codesign --force --options runtime --timestamp --sign "$IDENTITY" "$FW/Autoupdate"
+    codesign --force --options runtime --timestamp --sign "$IDENTITY" "$FW/Updater.app"
+    codesign --force --options runtime --timestamp --sign "$IDENTITY" \
+             "$APP/Contents/Frameworks/Sparkle.framework"
+
     # --options runtime is the hardened runtime, required for notarisation.
     # --timestamp is required too; without it notarisation is rejected.
     codesign --force --options runtime --timestamp \
              --sign "$IDENTITY" "$APP"
-    codesign --verify --strict --verbose=2 "$APP"
+    codesign --verify --strict --deep --verbose=2 "$APP"
     echo "==> Gatekeeper assessment (expected to fail until notarised):"
     spctl --assess --type execute --verbose=4 "$APP" 2>&1 || true
 else

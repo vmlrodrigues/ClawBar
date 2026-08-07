@@ -395,7 +395,53 @@ NSApp.mainMenu = main
 
 ---
 
-## 10. Build order
+## 10. Sparkle
+
+Sparkle 2.9.5 via SPM. Three things are specific to this app.
+
+**Framework embedding is manual.** SPM has no notion of an `.app` bundle, so
+`Scripts/build.sh` copies `Sparkle.framework` into `Contents/Frameworks` itself, and
+`Package.swift` adds `-rpath @executable_path/../Frameworks` so the executable can find
+it. Verified: `otool -L` shows `@rpath/Sparkle.framework/Versions/B/Sparkle` and nothing
+else resolving through rpath.
+
+**Nested code must be signed innermost first.** The framework contains two XPC services,
+a helper app and the Autoupdate binary, each needing its own signature. A signature covers
+everything beneath it, so signing the framework before its XPC services immediately
+invalidates it. Order: `Installer.xpc`, `Downloader.xpc`, `Autoupdate`, `Updater.app`,
+`Sparkle.framework`, then the app. The XPC services need
+`--preserve-metadata=entitlements`; re-signing without it silently drops their
+entitlements.
+
+**An accessory app cannot raise its own windows.** Same problem the onboarding window had.
+`UpdaterUIDelegate.standardUserDriverWillShowModalAlert()` activates the app before any
+Sparkle prompt appears, and `supportsGentleScheduledUpdateReminders` tells Sparkle there
+is no dock icon to bounce, so a scheduled reminder should not be assumed seen.
+
+### Signing key
+
+A ClawBar-specific EdDSA key, generated with `generate_keys --account ClawBar`. Budgetry's
+key is a separate item under the same Keychain service and is untouched — one key per app,
+so a compromise of one does not authorise updates for the other.
+
+**The private key exists only in the login Keychain.** Lose it and no already-installed
+copy can ever be updated again, because the public key is baked into every shipped
+Info.plist. Back it up.
+
+### Publishing
+
+`Scripts/appcast.sh` stages the notarised DMG into a checkout of a **public** releases
+repo and runs Sparkle's own `generate_appcast`. It refuses to publish a DMG without a
+stapled notarisation ticket.
+
+DMGs are committed to that repo rather than attached as GitHub release assets, because a
+release asset's URL contains its tag — every version would need a different
+`--download-url-prefix`, and `generate_appcast` takes one for the whole folder. Committing
+keeps the prefix constant and lets the stock tool do the whole job. Cost is repo size,
+roughly 5 MB per release, so prune old DMGs periodically. Budgetry solves the same problem
+with a custom `appcast-add.py`; that is the alternative if the repo grows awkward.
+
+## 11. Build order
 
 1. `AnthropicUsageClient` + `HeaderParser` + `UsageSnapshot`, with a fixture-backed test
    using the captured headers.

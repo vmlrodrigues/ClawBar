@@ -5,6 +5,7 @@ import SwiftUI
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let model = AppModel()
+    private let updater = UpdaterController()
     private var statusItem: StatusItemController!
     private var scheduler: PollScheduler!
     private var activityMonitor: ActivityMonitor?
@@ -182,7 +183,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             raise(existing)
             return
         }
-        let view = SettingsView(onReplaceToken: { [weak self] in
+        let view = SettingsView(updater: updater, onReplaceToken: { [weak self] in
             self?.settingsWindow?.close()
             self?.settingsWindow = nil
             self?.showOnboarding()
