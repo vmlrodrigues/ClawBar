@@ -27,11 +27,12 @@
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2026 Victor Rodrigues. All rights reserved.</string>
-	<!-- Sparkle. SUFeedURL must point at a PUBLICLY readable appcast: release assets
-	     on a private repo need authentication to download, so the source repo cannot
-	     host this. Change it here and rebuild if the releases repo moves. -->
+	<!-- Sparkle. SUFeedURL must point at a PUBLICLY readable appcast. The source repo
+	     is public, so it hosts the appcast directly; the DMGs themselves are GitHub
+	     release assets rather than committed files, to keep binaries out of git
+	     history. Changing this after anyone installs orphans them from updates. -->
 	<key>SUFeedURL</key>
-	<string>https://raw.githubusercontent.com/vmlrodrigues/clawbar-releases/main/appcast.xml</string>
+	<string>https://raw.githubusercontent.com/vmlrodrigues/ClawBar/main/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>ysGT/WrJ7sn9lCWhkIx2aY305O0aiI+c8rlru2YNOZM=</string>
 	<key>SUEnableAutomaticChecks</key>

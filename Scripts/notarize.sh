@@ -34,7 +34,9 @@ set -a; . "$ROOT/.env"; set +a
 : "${NOTARY_KEY:?.env must set NOTARY_KEY (path to the App Store Connect .p8)}"
 : "${NOTARY_KEY_ID:?.env must set NOTARY_KEY_ID}"
 : "${NOTARY_ISSUER:?.env must set NOTARY_ISSUER}"
-IDENTITY="${RELEASE_SIGN_IDENTITY:-Developer ID Application: Victor Rodrigues (9N354A3UZK)}"
+IDENTITY="${RELEASE_SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null \
+    | awk -F'"' '/Developer ID Application/{print $2; exit}')}"
+[ -n "$IDENTITY" ] || { echo "error: no Developer ID identity; set RELEASE_SIGN_IDENTITY in .env" >&2; exit 1; }
 
 [ -f "$NOTARY_KEY" ] || { echo "error: NOTARY_KEY file not found: $NOTARY_KEY" >&2; exit 1; }
 

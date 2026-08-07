@@ -12,7 +12,9 @@ set -euo pipefail
 APP_NAME="ClawBar"
 VERSION="${VERSION:-0.1.0}"
 BUILD="${BUILD:-1}"
-IDENTITY="${IDENTITY:-Developer ID Application: Victor Rodrigues (9N354A3UZK)}"
+# Auto-detected rather than hardcoded, so a fork signs with its own identity.
+IDENTITY="${IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null \
+    | awk -F'"' '/Developer ID Application/{print $2; exit}')}"
 SIGN="${SIGN:-1}"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -55,6 +57,12 @@ if [ -n "$SPARKLE_FW" ]; then
     ditto "$SPARKLE_FW" "$APP/Contents/Frameworks/Sparkle.framework"
 else
     echo "error: Sparkle.framework not found — run 'swift package resolve' first" >&2
+    exit 1
+fi
+
+if [ "$SIGN" = "1" ] && [ -z "$IDENTITY" ]; then
+    echo "error: no 'Developer ID Application' identity in your keychain." >&2
+    echo "       Set IDENTITY=… explicitly, or SIGN=0 to build unsigned for local use." >&2
     exit 1
 fi
 

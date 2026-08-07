@@ -1,0 +1,15 @@
+<?xml version='1.0' encoding='utf-8'?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+  <channel>
+    <title>ClawBar</title>
+    <item>
+      <title>0.2.0</title>
+      <link>https://github.com/vmlrodrigues/ClawBar/releases/tag/v0.2.0</link>
+      <pubDate>Fri, 07 Aug 2026 12:03:04 +1000</pubDate>
+      <sparkle:version>6</sparkle:version>
+      <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/vmlrodrigues/ClawBar/releases/download/v0.2.0/ClawBar-0.2.0.dmg" type="application/octet-stream" length="2863597" sparkle:edSignature="jJRpwrdTHzj82va3klZhlxhqEbqmHY4294KDbG1B/2kyTmN7SaFTFD0ns5h5KPocwnjKwQI+J5j2+42mKxfgAQ==" />
+    </item>
+  </channel>
+</rss>
