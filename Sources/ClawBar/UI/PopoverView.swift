@@ -25,6 +25,11 @@ struct WindowRow: View {
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(window.map { Health.of($0.percent).swiftUIColor } ?? .secondary)
+                    .help("""
+                          Claude's own Usage panel can show one point higher. The API \
+                          rounds this to two decimals before ClawBar sees it, so the \
+                          exact figure is not available here.
+                          """)
             }
 
             GeometryReader { geo in
@@ -74,6 +79,11 @@ struct PopoverView: View {
     /// `representative-claim` header. That header read `five_hour` in all 110 logged
     /// samples — including 52 where the weekly window was the more consumed of the two —
     /// so whatever it means, it is not "the limit that binds". See VERIFICATION.md.
+    private var isStale: Bool {
+        guard let fetched = model.snapshot?.fetchedAt else { return false }
+        return now.timeIntervalSince(fetched) > 5 * 60
+    }
+
     private enum Nearest { case session, weekly, tie }
 
     private var nearestLimit: Nearest {
@@ -214,8 +224,15 @@ struct PopoverView: View {
 
     private var footer: some View {
         HStack(spacing: 8) {
+            // Turns amber once the reading is old enough to disagree visibly with
+            // Claude's own panel — the difference is lag, not error, and saying so
+            // beats leaving someone to wonder which number is lying.
             Text(model.snapshot.map { "Updated \(shortDuration(now.timeIntervalSince($0.fetchedAt))) ago" } ?? "—")
-                .font(.system(size: 10)).foregroundStyle(.secondary)
+                .font(.system(size: 10))
+                .foregroundStyle(isStale ? .orange : .secondary)
+                .help(isStale
+                      ? "Older than 5 minutes. Usage from claude.ai or the desktop app is invisible to ClawBar until the next refresh."
+                      : "")
             Spacer()
             Button { Task { await model.refresh() } } label: {
                 Image(systemName: "arrow.clockwise")

@@ -6,10 +6,19 @@ struct UsageWindow: Equatable {
     let resetsAt: Date
     let status: String          // "allowed" | ...
 
-    /// Floor, deliberately. The header carries two decimal places; the official Usage
-    /// panel reads up to one point higher. Rounding up to chase it would invent
-    /// precision the header does not carry.
-    var percent: Int { Int(utilization * 100) }
+    /// Rounded, not truncated.
+    ///
+    /// The header carries exactly two decimal places, so `utilization * 100` is always
+    /// meant to be a whole number — but IEEE 754 does not always land on or above it.
+    /// `0.29 * 100` is 28.999999999999996, and `Int()` turns that into 28. Three values
+    /// in a hundred (0.29, 0.57, 0.58) read a point low that way. Rounding recovers the
+    /// integer the server actually sent.
+    ///
+    /// Separately, and unfixably: the server floors to two decimals before sending, so
+    /// `0.28` means anywhere in 28.00–28.99%. Claude's own Usage panel has the
+    /// full-precision figure and rounds it, so it can legitimately show one point higher.
+    /// Nothing here can recover that missing precision.
+    var percent: Int { Int((utilization * 100).rounded()) }
 }
 
 struct Snapshot: Equatable {

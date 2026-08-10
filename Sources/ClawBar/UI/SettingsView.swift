@@ -20,12 +20,13 @@ struct SettingsView: View {
                 .pickerStyle(.radioGroup)
 
                 Text("""
-                     ClawBar reads your usage by making one tiny request, and a request \
-                     most likely starts a 5-hour session window. While you are actively \
-                     using Claude Code it refreshes every minute regardless. This setting \
-                     only controls what happens once you have stopped — leave it on to \
-                     catch usage from claude.ai and the desktop app, or turn it off to be \
-                     certain ClawBar never starts a session window on its own.
+                     ClawBar detects activity by watching Claude Code's files, and \
+                     refreshes every minute while you are working there. It cannot see \
+                     usage from claude.ai or the Claude desktop app — this setting is how \
+                     often it checks anyway. Pick a shorter interval if you use Claude \
+                     outside Claude Code and want the menu bar to keep up; pick Off if you \
+                     would rather ClawBar never start a 5-hour session window on its own, \
+                     since each check is a real request.
                      """)
                     .font(.system(size: 10)).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

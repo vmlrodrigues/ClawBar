@@ -54,6 +54,12 @@ table. They can change shape or disappear without notice, and if they do, ClawBa
 [VERIFICATION.md](VERIFICATION.md) records exactly what was observed, when, and how it was
 checked, so a future failure can be diagnosed rather than guessed at.
 
+**The number can read one point below Claude's own panel.** The header carries only two
+decimal places, and the server floors to them — `0.28` means anywhere in 28.00–28.99%.
+Claude's Usage panel has the full-precision figure and rounds it, so it can legitimately
+show 29% for the same instant. No arithmetic here can recover the missing precision, so
+ClawBar shows what it was given.
+
 **Polling costs a request.** It is tiny — 8 input and 1 output token on Haiku, which did
 not move reported utilisation at all across 110 logged samples — but it is a real
 inference call, and it appears to anchor a 5-hour session window. So ClawBar polls on

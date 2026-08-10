@@ -31,6 +31,7 @@ enum BarFormat: String, CaseIterable, Identifiable, Codable {
 /// the app exists to report.
 enum IdleBehaviour: String, CaseIterable, Identifiable, Codable {
     case off           // stop entirely; refresh on demand
+    case five          // for people who also use claude.ai or the desktop app
     case fifteen
     case thirty
     var id: String { rawValue }
@@ -38,6 +39,7 @@ enum IdleBehaviour: String, CaseIterable, Identifiable, Codable {
     var interval: TimeInterval? {
         switch self {
         case .off:     return nil
+        case .five:    return 5 * 60
         case .fifteen: return 15 * 60
         case .thirty:  return 30 * 60
         }
@@ -46,6 +48,7 @@ enum IdleBehaviour: String, CaseIterable, Identifiable, Codable {
     var label: String {
         switch self {
         case .off:     return "Off"
+        case .five:    return "Every 5 min"
         case .fifteen: return "Every 15 min"
         case .thirty:  return "Every 30 min"
         }
