@@ -5,10 +5,11 @@ struct WindowRow: View {
     let subtitle: String
     let window: UsageWindow?
     let emphasised: Bool
-    /// Marker for the point where Claude Code is believed to fall back from Opus to
-    /// Sonnet. Inference from an undocumented header, so it is opt-in and labelled.
-    var fallbackMarker: Double?
     var projection: Projection?
+
+    /// Enough for "projected 100%" at 9pt. A fixed box means the caret can be positioned
+    /// exactly without measuring text.
+    private static let labelWidth: CGFloat = 84
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -36,45 +37,62 @@ struct WindowRow: View {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.secondary.opacity(0.18))
+                    // Where the bar is heading, drawn under the solid fill so the two read
+                    // as one continuous quantity rather than two separate marks.
+                    if let projection {
+                        // Coloured by the *outlook*, not by current health. The solid fill
+                        // says where you are; this says where you are going, and those can
+                        // disagree — 45% now heading to 90% is a fine present and a bad
+                        // future. Inheriting the current colour hid exactly that case.
+                        let colour = projectionColour(projection.outlook)
+                        let reach = geo.size.width * min(1, Double(projection.projectedPercent) / 100)
+                        Capsule().fill(colour.opacity(0.30)).frame(width: reach)
+                        // A solid cap, so the projected end is a definite point rather
+                        // than a fade that could be mistaken for the track.
+                        Capsule()
+                            .fill(colour.opacity(0.9))
+                            .frame(width: 2)
+                            .offset(x: max(0, reach - 2))
+                    }
                     if let window {
                         Capsule()
                             .fill(Health.of(window.percent).swiftUIColor)
                             .frame(width: max(3, geo.size.width * min(1, window.utilization)))
                     }
-                    if let marker = fallbackMarker {
-                        Rectangle()
-                            .fill(Color.secondary.opacity(0.55))
-                            .frame(width: 1.5)
-                            .offset(x: geo.size.width * min(1, marker))
-                    }
-                    // Where the window is heading. `primary` rather than a literal white
-                    // so it stays visible in light mode, where white on the unfilled
-                    // track would disappear.
-                    if let projection {
-                        let fraction = min(1, Double(projection.projectedPercent) / 100)
-                        Rectangle()
-                            .fill(Color.primary.opacity(projection.outlook == .onTrack ? 0.45 : 0.85))
-                            .frame(width: 1.5)
-                            .offset(x: max(0, geo.size.width * fraction - 0.75))
-                    }
                 }
             }
             .frame(height: 5)
 
-            // Shares the reset line rather than claiming a row of its own.
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(subtitle)
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
-                Spacer(minLength: 4)
-                if let projection {
-                    Text("projected \(projection.projectedPercent)%")
-                        .font(.system(size: 10))
-                        .monospacedDigit()
-                        .foregroundStyle(projectionColour(projection.outlook))
-                        .help(projectionDetail(projection))
+            // A caret sitting directly under the projected point, so the number is
+            // anchored to the place it refers to instead of floating at the margin.
+            if let projection {
+                GeometryReader { geo in
+                    let fraction = min(1, Double(projection.projectedPercent) / 100)
+                    let x = geo.size.width * fraction
+                    // Near the right edge there is no room for the label, so it moves to
+                    // the other side of the caret. Clamping the whole group instead would
+                    // slide the caret off the point it exists to indicate — which for a
+                    // pointer is worse than useless.
+                    let flip = x + Self.labelWidth > geo.size.width
+                    ZStack(alignment: .topLeading) {
+                        Text("▲")
+                            .font(.system(size: 7))
+                            .offset(x: max(0, x - 3))
+                        Text("projected \(projection.projectedPercent)%")
+                            .font(.system(size: 9, weight: .medium))
+                            .monospacedDigit()
+                            .frame(width: Self.labelWidth, alignment: flip ? .trailing : .leading)
+                            .offset(x: flip ? x - Self.labelWidth - 3 : x + 7)
+                    }
+                    .foregroundStyle(projectionColour(projection.outlook))
+                    .help(projectionDetail(projection))
                 }
+                .frame(height: 12)
             }
+
+            Text(subtitle)
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
         }
     }
 

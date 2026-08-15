@@ -456,11 +456,37 @@ unknown.
 History lives in its own `projection-history.json`, **not** the usage log, so that turning
 off an optional diagnostic cannot silently break a feature.
 
+### How it is drawn
+
+A translucent extension of the progress bar reaching the projected point, with a solid
+cap at its end, and a caret directly beneath carrying "projected 61%".
+
+Two details that only became obvious once the thing was rendered:
+
+**The caret is positioned exactly; the label moves.** An earlier version clamped the whole
+group to keep the text on screen, which at 90% slid the caret some 70pt away from the
+point it exists to indicate. A pointer that does not point is worse than no pointer, so
+the label now flips to the caret's left near the right edge.
+
+**The projection is coloured by its outlook, not by current health.** The solid fill says
+where you are; the ghost says where you are going, and those disagree exactly when it
+matters. At 45% heading to 90% the bar was drawing a calm grey extension under an amber
+label. The ghost now goes amber, then red, so the bar tells the story before the number
+is read.
+
+Known limitation: the bar cannot depict overflow, so a projection of 105% and one of 200%
+fill it identically and only the figure distinguishes them.
+
+Five other treatments were built and rendered before this one was chosen — a faint tick, a
+plain ghost fill, a dashed outline, and two variants putting "20% → 61%" in the header.
+`--render-states` remains, since usage cannot be driven to 90% on demand to check the UI.
+
 ### Diagnostics — run them from the signed bundle
 
 ```
 dist/ClawBar.app/Contents/MacOS/ClawBar --projection
 dist/ClawBar.app/Contents/MacOS/ClawBar --render-popover /tmp/p.png [--dark]
+dist/ClawBar.app/Contents/MacOS/ClawBar --render-states /tmp/s.png
 ```
 
 `--projection` prints what the popover would show, exercising the real code path.

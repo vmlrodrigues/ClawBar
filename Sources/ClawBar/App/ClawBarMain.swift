@@ -13,9 +13,66 @@ final class Finished: @unchecked Sendable {
 @main
 enum ClawBarMain {
     static func main() {
-        // `ClawBar --render-popover <path.png>` draws the real popover offscreen. UI can
-        // then be checked without Screen Recording permission, which a headless build
-        // machine will not have either.
+        // `--render-states` draws the projection across its range, including the cases
+        // real data will not produce on demand: near the limit, and over it.
+        if let i = CommandLine.arguments.firstIndex(of: "--render-states") {
+            let path = i + 1 < CommandLine.arguments.count
+                ? CommandLine.arguments[i + 1] : "/tmp/clawbar-states.png"
+            let done = Finished()
+            MainActor.assumeIsolated {
+                let reset = Date().addingTimeInterval(4.7 * 86_400)
+                // (current, projected, label) — chosen to exercise each health colour
+                // and each outlook.
+                let cases: [(Int, Int, String)] = [
+                    (20, 61, "on track"),
+                    (45, 90, "may run out"),
+                    (60, 120, "will run out"),
+                    (74, 99, "right on the line"),
+                ]
+                let sheet = VStack(alignment: .leading, spacing: 26) {
+                    ForEach(cases, id: \.1) { current, projected, note in
+                        VStack(alignment: .leading, spacing: 7) {
+                            Text("\(current)% now → \(projected)% projected — \(note)")
+                                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                .foregroundStyle(.tint)
+                            WindowRow(
+                                title: "All models",
+                                subtitle: "resets 05:00 · in 4d 16h",
+                                window: UsageWindow(utilization: Double(current) / 100,
+                                                    resetsAt: reset, status: "allowed"),
+                                emphasised: false,
+                                projection: Projection(
+                                    ratePerDay: 8.3,
+                                    projectedPercent: projected,
+                                    daysRemaining: 4.7,
+                                    outlook: projected > 105 ? .willRunOut
+                                           : (projected > 85 ? .mayRunOut : .onTrack),
+                                    limitReachedAt: projected > 100 ? reset.addingTimeInterval(-86_400) : nil))
+                        }
+                    }
+                }
+                .padding(20)
+                .frame(width: 308)
+                .environment(\.colorScheme, .dark)
+                .background(Color.black)
+
+                let renderer = ImageRenderer(content: sheet)
+                renderer.scale = 2
+                if let image = renderer.nsImage,
+                   let tiff = image.tiffRepresentation,
+                   let rep = NSBitmapImageRep(data: tiff),
+                   let png = rep.representation(using: .png, properties: [:]) {
+                    try? png.write(to: URL(fileURLWithPath: path))
+                    print("wrote \(path)")
+                } else { print("render failed") }
+                done.flag = true
+            }
+            exit(0)
+        }
+
+        // `--render-popover` draws the real popover offscreen, so UI can be checked
+        // without Screen Recording permission — which a headless build machine also
+        // lacks. Run it from dist/ClawBar.app, never .build (see DESIGN.md §10).
         if let i = CommandLine.arguments.firstIndex(of: "--render-popover") {
             let path = i + 1 < CommandLine.arguments.count
                 ? CommandLine.arguments[i + 1] : "/tmp/clawbar-popover.png"
