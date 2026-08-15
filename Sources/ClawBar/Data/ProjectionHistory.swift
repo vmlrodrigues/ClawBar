@@ -17,10 +17,19 @@ struct Projection {
 /// someone turned off logging.
 @MainActor
 final class ProjectionHistory {
+    enum Kind { case session, weekly }
+
     private struct Sample: Codable {
         let t: Double        // epoch seconds
-        let u: Double        // utilization, 0...1
-        let reset: Double    // the window's reset epoch, so rollovers are detectable
+        let u: Double        // weekly utilization, 0...1
+        let reset: Double    // the weekly window's reset epoch, so rollovers are detectable
+        // Session equivalents. Optional so histories written before session projections
+        // existed still decode rather than being discarded.
+        var su: Double?
+        var sr: Double?
+
+        func utilization(_ kind: Kind) -> Double? { kind == .weekly ? u : su }
+        func reset(_ kind: Kind) -> Double? { kind == .weekly ? reset : sr }
     }
 
     private var samples: [Sample] = []
@@ -53,12 +62,15 @@ final class ProjectionHistory {
         guard let weekly = snapshot.weekly else { return }
         let sample = Sample(t: snapshot.fetchedAt.timeIntervalSince1970,
                             u: weekly.utilization,
-                            reset: weekly.resetsAt.timeIntervalSince1970)
+                            reset: weekly.resetsAt.timeIntervalSince1970,
+                            su: snapshot.session?.utilization,
+                            sr: snapshot.session?.resetsAt.timeIntervalSince1970)
 
         // Keep every change, plus a heartbeat sample, but do not write on every poll.
         if let last = samples.last,
            last.u == sample.u,
            last.reset == sample.reset,
+           last.su == sample.su,
            sample.t - last.t < Self.minimumGap {
             return
         }
@@ -73,24 +85,43 @@ final class ProjectionHistory {
     /// went to zero, whether that was the weekly rollover or one of the mid-window
     /// resets Anthropic applies. Anchoring here means those resets need no special
     /// handling — they simply become the new starting line.
-    private func baseline(for window: UsageWindow) -> Sample? {
+    private func baseline(for window: UsageWindow, kind: Kind) -> Sample? {
         let reset = window.resetsAt.timeIntervalSince1970
-        let inWindow = samples.filter { abs($0.reset - reset) < 1 }
+        let inWindow = samples.filter { s in
+            guard let r = s.reset(kind), s.utilization(kind) != nil else { return false }
+            return abs(r - reset) < 1
+        }
         guard var base = inWindow.first else { return nil }
-        for i in 1..<max(inWindow.count, 1) where inWindow[i].u < inWindow[i - 1].u - 0.02 {
-            base = inWindow[i]
+        for i in 1..<max(inWindow.count, 1) {
+            guard let a = inWindow[i].utilization(kind),
+                  let b = inWindow[i - 1].utilization(kind) else { continue }
+            if a < b - 0.02 { base = inWindow[i] }
         }
         return base
     }
 
-    func projection(for window: UsageWindow, now: Date = Date()) -> Projection? {
-        guard let base = baseline(for: window) else { return nil }
+    /// A session projection is only worth showing when it has something to say.
+    ///
+    /// Across 41 logged session windows the median peak was 8% and the highest ever 45%;
+    /// none passed 50%. Displaying "projected 9%" every time would be pure furniture. It
+    /// also over-predicts — 78% of backtested predictions came in high, mean +3.1 points,
+    /// because session usage is front-loaded: a burst at the start, then a taper, so the
+    /// early rate does not hold. Both problems disappear if it stays quiet until the
+    /// projection is high enough to matter.
+    static let sessionDisplayThreshold = 60
+
+    func projection(for window: UsageWindow, kind: Kind = .weekly, now: Date = Date()) -> Projection? {
+        guard let base = baseline(for: window, kind: kind),
+              let baseUtilization = base.utilization(kind) else { return nil }
 
         let elapsedDays = (now.timeIntervalSince1970 - base.t) / 86_400
-        guard elapsedDays >= Self.minimumElapsedDays else { return nil }
+        // A five-hour window cannot wait a day for history; an hour is the equivalent
+        // share of it.
+        let minimumElapsed = kind == .weekly ? Self.minimumElapsedDays : 1.0 / 24
+        guard elapsedDays >= minimumElapsed else { return nil }
 
         let current = window.utilization * 100
-        let consumed = current - base.u * 100
+        let consumed = current - baseUtilization * 100
         guard consumed > 0 else { return nil }        // nothing used yet; no rate to fit
 
         let rate = consumed / elapsedDays
@@ -113,8 +144,11 @@ final class ProjectionHistory {
             limitReachedAt = now.addingTimeInterval((100 - current) / rate * 86_400)
         }
 
+        let percent = Int(projected.rounded())
+        if kind == .session, percent < Self.sessionDisplayThreshold { return nil }
+
         return Projection(ratePerDay: rate,
-                          projectedPercent: Int(projected.rounded()),
+                          projectedPercent: percent,
                           daysRemaining: remainingDays,
                           outlook: outlook,
                           limitReachedAt: limitReachedAt)

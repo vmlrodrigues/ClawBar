@@ -40,9 +40,6 @@ exhausted window.
 
 ## Deliberately not done
 
-**No projection for the session window.** Five hours is too short and too bursty to fit a
-rate to; the figure would lurch about every few minutes. Weekly only.
-
 **No per-model limits.** Claude's own Usage panel shows a separate weekly meter per model
 (e.g. Fable). No header exposes it, and requesting a different model does not produce one.
 

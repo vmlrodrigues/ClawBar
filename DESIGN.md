@@ -479,6 +479,49 @@ unknown.
 History lives in its own `projection-history.json`, **not** the usage log, so that turning
 off an optional diagnostic cannot silently break a feature.
 
+### Why the session window projects too — but usually says nothing
+
+The session window was originally left unprojected on the grounds that five hours is too
+short and bursty to fit a rate to. Backtesting says that was wrong on the facts:
+
+```
+554 predictions across 42 session windows
+  mean absolute error : 4.3 pts
+  median              : 1.7 pts
+```
+
+Comparable to the weekly estimator's 1.4–6.3. Accuracy was never the problem. Two other
+things are:
+
+**It over-predicts.** 78% of predictions came in high, mean +3.1 points. Session usage is
+front-loaded — a burst at the start, then a taper — so rate-since-start extrapolates a
+pace that does not hold.
+
+**It has nothing to say.** Across 41 logged windows the median peak was 8%, the highest
+ever 45%, and not one passed 50%. "Projected 9%" every time is furniture.
+
+So it is computed but suppressed below a projected 60%. Below that there is no decision to
+make and the over-prediction bias would only cry wolf; above it, being blocked mid-task
+for up to five hours is worth a warning. A user who works the session window harder gets
+the projection; one who never approaches it never sees it.
+
+### Reset labels name the day
+
+`resets 05:00 · in 4d 8h` is ambiguous — which 05:00? The label now scales with distance:
+
+| Distance | Rendered |
+|---|---|
+| Today | `resets 22:30` |
+| Tomorrow | `resets tomorrow 04:23` |
+| Within a week | `resets Thu 05:00` |
+| Beyond | `resets Mon 24 Aug 20:23` |
+
+Relative wording near at hand because "tomorrow" reads faster than a weekday name;
+absolute beyond a week, where a bare weekday becomes ambiguous again. The countdown stays
+alongside: the named time answers "when can I plan for this", the duration answers "how
+long must I wait", and neither substitutes for the other. `--dates` exercises every
+branch, since only one is reachable at any given moment.
+
 ### How it is drawn
 
 A translucent extension of the progress bar reaching the projected point, with a solid

@@ -135,9 +135,12 @@ struct PopoverView: View {
     @State private var now = Date()
     private let ticker = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 
+    /// Both halves earn their place: the named time answers "when can I plan for", the
+    /// countdown answers "how long must I wait". Neither substitutes for the other.
     private func resetLine(_ window: UsageWindow?) -> String {
         guard let window else { return "no data" }
-        return "resets \(clockTime(window.resetsAt)) · in \(shortDuration(window.resetsAt.timeIntervalSince(now)))"
+        return "resets \(resetDescription(window.resetsAt, relativeTo: now))"
+             + " · in \(shortDuration(window.resetsAt.timeIntervalSince(now)))"
     }
 
     /// Old enough that it could visibly disagree with Claude's own panel — usage from
@@ -234,15 +237,12 @@ struct PopoverView: View {
 
     private var windows: some View {
         VStack(alignment: .leading, spacing: 12) {
+            // The session projection is usually nil by design — it appears only when
+            // heading somewhere worth knowing about. See sessionDisplayThreshold.
             WindowRow(title: "Current session",
                       subtitle: resetLine(model.snapshot?.session),
-                      window: model.snapshot?.session)
-                      // fallbackMarker deliberately not passed. It draws a tick identical
-                      // to the projection marker but means something entirely different —
-                      // and it is guesswork from an undocumented header, unlabelled. Two
-                      // identical marks meaning different things is worse than one fewer
-                      // data point. Restore by passing
-                      // `fallbackMarker: model.snapshot?.fallbackPercentage`.
+                      window: model.snapshot?.session,
+                      projection: model.sessionProjection)
 
             WindowRow(title: "All models",
                       subtitle: resetLine(model.snapshot?.weekly),

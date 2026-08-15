@@ -16,7 +16,14 @@ final class AppModel: ObservableObject {
     /// Where the weekly window is heading, or nil while there is too little history.
     var weeklyProjection: Projection? {
         guard let weekly = snapshot?.weekly else { return nil }
-        return projectionHistory.projection(for: weekly)
+        return projectionHistory.projection(for: weekly, kind: .weekly)
+    }
+
+    /// Where the session window is heading — nil unless it is heading somewhere worth
+    /// mentioning. See ProjectionHistory.sessionDisplayThreshold.
+    var sessionProjection: Projection? {
+        guard let session = snapshot?.session else { return nil }
+        return projectionHistory.projection(for: session, kind: .session)
     }
 
     var hasToken: Bool { TokenStore.read() != nil }

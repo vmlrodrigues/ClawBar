@@ -85,6 +85,31 @@ func bundleVersionString() -> String {
     return "\(short) (\(build))"
 }
 
+/// A reset time you can actually plan around.
+///
+/// "05:00" on its own is fine for something happening within the hour and useless four
+/// days out — which 05:00? Naming the day removes the ambiguity without forcing anyone to
+/// count forward from a duration. Kept relative for near dates because "tomorrow" is
+/// read faster than a weekday name, and absolute beyond a week where a bare weekday
+/// becomes ambiguous again.
+func resetDescription(_ date: Date, relativeTo now: Date = Date()) -> String {
+    let calendar = Calendar.current
+    let time = clockTime(date)
+
+    if calendar.isDate(date, inSameDayAs: now) { return time }
+    if let tomorrow = calendar.date(byAdding: .day, value: 1, to: now),
+       calendar.isDate(date, inSameDayAs: tomorrow) {
+        return "tomorrow \(time)"
+    }
+
+    let days = calendar.dateComponents([.day],
+                                       from: calendar.startOfDay(for: now),
+                                       to: calendar.startOfDay(for: date)).day ?? 0
+    let formatter = DateFormatter()
+    formatter.dateFormat = days < 7 ? "EEE" : "EEE d MMM"
+    return "\(formatter.string(from: date)) \(time)"
+}
+
 func clockTime(_ date: Date) -> String {
     let f = DateFormatter()
     f.dateFormat = "HH:mm"

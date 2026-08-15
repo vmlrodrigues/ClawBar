@@ -37,6 +37,27 @@ enum ClawBarMain {
             exit(0)
         }
 
+        // Reset labels change shape by distance, and only one branch is reachable at any
+        // given moment. This exercises all of them.
+        if CommandLine.arguments.contains("--dates") {
+            let now = Date()
+            let cases: [(String, TimeInterval)] = [
+                ("in 2 hours", 7_200),
+                ("later today", 28_800),
+                ("after midnight", 50_400),
+                ("in 3 days", 259_200),
+                ("in 6 days", 518_400),
+                ("in 9 days", 777_600),
+            ]
+            for (label, offset) in cases {
+                let date = now.addingTimeInterval(offset)
+                let when = resetDescription(date, relativeTo: now)
+                let howLong = shortDuration(offset)
+                print("  \(label.padding(toLength: 15, withPad: " ", startingAt: 0))-> resets \(when) · in \(howLong)")
+            }
+            exit(0)
+        }
+
         // Same string Settings shows, so it can be checked without opening the window.
         if CommandLine.arguments.contains("--version") {
             print("ClawBar \(bundleVersionString())")
