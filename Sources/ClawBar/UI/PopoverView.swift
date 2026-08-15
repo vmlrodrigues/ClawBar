@@ -8,6 +8,7 @@ struct WindowRow: View {
     /// Marker for the point where Claude Code is believed to fall back from Opus to
     /// Sonnet. Inference from an undocumented header, so it is opt-in and labelled.
     var fallbackMarker: Double?
+    var projection: Projection?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -53,6 +54,42 @@ struct WindowRow: View {
             Text(subtitle)
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
+
+            if let projection {
+                Text(projectionText(projection))
+                    .font(.system(size: 10))
+                    .foregroundStyle(projectionColour(projection.outlook))
+                    .help("""
+                          Projected from your average rate since the counter last reset \
+                          (\(String(format: "%.1f", projection.ratePerDay)) points/day). \
+                          Accuracy falls off the further ahead it looks — roughly 1.5 \
+                          points per day projected.
+                          """)
+            }
+        }
+    }
+
+    /// Leads with the date when the limit is actually in reach, because that is the
+    /// actionable fact; the percentage is what you check when it is not.
+    private func projectionText(_ p: Projection) -> String {
+        switch p.outlook {
+        case .onTrack:
+            return "~\(p.projectedPercent)% by reset · on track"
+        case .mayRunOut:
+            return "~\(p.projectedPercent)% by reset · may run out"
+        case .willRunOut:
+            guard let at = p.limitReachedAt else { return "~\(p.projectedPercent)% by reset" }
+            let f = DateFormatter()
+            f.dateFormat = "EEE d MMM"
+            return "limit ~\(f.string(from: at)) at this rate"
+        }
+    }
+
+    private func projectionColour(_ outlook: Projection.Outlook) -> Color {
+        switch outlook {
+        case .onTrack:    return .secondary
+        case .mayRunOut:  return .orange
+        case .willRunOut: return .red
         }
     }
 }
@@ -177,7 +214,8 @@ struct PopoverView: View {
             WindowRow(title: "All models",
                       subtitle: resetLine(model.snapshot?.weekly),
                       window: model.snapshot?.weekly,
-                      emphasised: nearestLimit == .weekly)
+                      emphasised: nearestLimit == .weekly,
+                      projection: model.weeklyProjection)
 
             // Only meaningful once credits are actually being consumed; the official
             // panel shows no meter at zero either.

@@ -68,35 +68,40 @@ wakeups with other timers. No `Timer.scheduledTimer` on the main runloop. Suspen
 ## 3. Architecture
 
 ```
-ClawBar/
-  ClawBarApp.swift            @main, AppDelegate wiring
+Sources/ClawBar/
   App/
-    AppDelegate.swift         activation policy, minimal main menu, lifecycle
-    AppModel.swift            @Observable display state (main actor)
+    ClawBarMain.swift          @main; also the --projection probe
+    AppDelegate.swift          activation policy, Edit menu, windows, lifecycle
+    AppModel.swift             display state and refresh
   StatusBar/
     StatusItemController.swift NSStatusItem ownership, change-gated updates
-    GaugeRenderer.swift        ring image, cached by (percent, severity)
-    BarDisplay.swift           snapshot+state -> rendered string/image
+    BarRendering.swift         snapshot -> segments -> attributed string; symbol cache
   Data/
-    AnthropicUsageClient.swift actor; the one network call
-    UsageSnapshot.swift        model
-    HeaderParser.swift         header -> Window
-    PollScheduler.swift        the table in §2
-    ActivityMonitor.swift      FSEvents on ~/.claude/projects
-    UsageLog.swift             append-only JSONL
+    AnthropicUsageClient.swift the one network call
+    UsageSnapshot.swift        model, health bands, duration formatting
+    PollScheduler.swift        the interval table in §2
+    ActivityMonitor.swift      FSEvents on ~/.claude
+    ProjectionHistory.swift    weekly projection (§10)
+    UsageLog.swift             append-only JSONL diagnostic
+    Notifier.swift             threshold alerts with hysteresis
   Security/
     TokenStore.swift           Keychain read/write
+  Support/
+    Preferences.swift          UserDefaults-backed settings
+    HotKeyCenter.swift         Carbon global hotkey
+    UpdaterController.swift    Sparkle
   UI/
-    PopoverView.swift          SwiftUI dropdown
-    WindowGaugeRow.swift       one row per window
+    PopoverView.swift          the dropdown
     SettingsView.swift
     OnboardingView.swift       first-run token paste
-  Info.plist                   LSUIElement = YES
+    ShortcutRecorder.swift
+Resources/Info.plist           LSUIElement = YES
 ```
 
-Concurrency: `actor AnthropicUsageClient` owns the network; `@MainActor @Observable
-final class AppModel` owns display state. `@Observable` (macOS 14+) rather than
-`ObservableObject` — no Combine, no publisher graph, fewer allocations.
+Concurrency: everything user-facing is `@MainActor`; `AnthropicUsageClient` is a
+stateless enum whose one `async` call hops off automatically. State is
+`ObservableObject` rather than `@Observable` — the popover is rebuilt per open, so the
+finer-grained invalidation `@Observable` buys would not pay for itself here.
 
 **Minimum target: macOS 14.** Buys `@Observable`, mature `SMAppService`, and current
 `MenuBarExtra` behaviour.
@@ -395,7 +400,65 @@ NSApp.mainMenu = main
 
 ---
 
-## 10. Sparkle
+## 10. Weekly projection
+
+The popover projects where the weekly window will land. Three decisions, each taken from
+measurement rather than taste.
+
+### Which rate
+
+Two candidates were backtested against 828 logged readings, measuring how well each
+predicted actual utilisation some hours later. Horizons straddling a reset were excluded,
+since nothing can predict those.
+
+| Horizon | since reset | last 24h | blend |
+|---|---|---|---|
+| 24h | **2.0 pts** | 3.1 | 2.5 |
+| 48h | **1.4 pts** | 2.6 | 1.8 |
+| 72h | **3.4 pts** | 4.0 | 3.5 |
+| 96h | **6.3 pts** | 7.5 | 6.9 |
+
+Mean absolute error. **Since-reset wins at every horizon**, by roughly a third. The
+24-hour rate loses because it is noisier, and that costs more than the staleness the
+longer average suffers. Blending the two is worse than the better one alone, so the
+24-hour rate is not shown at all — two competing figures would advertise indecision, not
+uncertainty.
+
+### The baseline is the last zeroing, not the window start
+
+Anthropic zeroes the weekly counter mid-window from time to time — observed going
+29% → 0% on 11 Aug 2026 with the reset timestamp unchanged. This is deliberate on their
+part and recurring, not an anomaly.
+
+Anchoring the rate to the most recent zeroing rather than the nominal window start makes
+that a non-event: the reset simply becomes the new starting line. No special-casing.
+
+### Confidence comes from the horizon
+
+Error grows about 1.5 points per day projected, per the table above. That, not a round
+number, sizes the verdict band:
+
+```
+margin  = max(3, 1.5 × daysRemaining)
+onTrack     projected + margin < 100
+willRunOut  projected − margin > 100
+mayRunOut   otherwise
+```
+
+So the same 95% projection reads "may run out" four days ahead and "will run out" four
+hours ahead, which is the honest difference.
+
+Nothing is shown until a full day has passed since the baseline — below that the estimator
+swung 17 points inside two and a half days in backtest. It therefore also goes quiet for a
+day after each Anthropic reset, which is correct: at that point the new rate is genuinely
+unknown.
+
+History lives in its own `projection-history.json`, **not** the usage log, so that turning
+off an optional diagnostic cannot silently break a feature.
+
+`ClawBar --projection` prints what the popover would show, exercising the real code path.
+
+## 11. Sparkle
 
 Sparkle 2.9.5 via SPM. Three things are specific to this app.
 
@@ -441,7 +504,7 @@ keeps the prefix constant and lets the stock tool do the whole job. Cost is repo
 roughly 5 MB per release, so prune old DMGs periodically. Budgetry solves the same problem
 with a custom `appcast-add.py`; that is the alternative if the repo grows awkward.
 
-## 11. Build order
+## 12. Build order
 
 1. `AnthropicUsageClient` + `HeaderParser` + `UsageSnapshot`, with a fixture-backed test
    using the captured headers.

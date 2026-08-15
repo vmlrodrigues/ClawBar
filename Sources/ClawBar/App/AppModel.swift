@@ -11,6 +11,13 @@ final class AppModel: ObservableObject {
 
     let notifier = Notifier()
     private let log = UsageLog()
+    private let projectionHistory = ProjectionHistory()
+
+    /// Where the weekly window is heading, or nil while there is too little history.
+    var weeklyProjection: Projection? {
+        guard let weekly = snapshot?.weekly else { return nil }
+        return projectionHistory.projection(for: weekly)
+    }
 
     var hasToken: Bool { TokenStore.read() != nil }
 
@@ -38,6 +45,9 @@ final class AppModel: ObservableObject {
             let fresh = try await AnthropicUsageClient.fetch()
             snapshot = fresh
             state = .ok
+            // Recorded unconditionally: the projection must not depend on the usage log,
+            // which is an optional diagnostic.
+            projectionHistory.record(fresh)
             if Preferences.shared.writeUsageLog { log?.record(fresh) }
             notifier.evaluate(fresh)
         } catch let error as FetchError {
