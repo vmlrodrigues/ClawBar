@@ -570,6 +570,37 @@ so a compromise of one does not authorise updates for the other.
 copy can ever be updated again, because the public key is baked into every shipped
 Info.plist. Back it up.
 
+### The update path, verified
+
+Exercised properly once: 0.4.3 was published while the installed copy was deliberately
+left on 0.4.2, and the update ran unattended.
+
+```
+before   ClawBar 0.4.2 (15)
+after    ClawBar 0.4.3 (18)
+
+signature: valid          staple: worked
+spctl: accepted, source=Notarized Developer ID
+Sparkle.framework present
+```
+
+The signature and notarisation checks are the point. Sparkle replaces the whole bundle,
+and an update that lands unsigned or unstapled would fail Gatekeeper on next launch — for
+everyone at once, discovered only by them.
+
+**The appcast is CDN-cached for five minutes.** `raw.githubusercontent.com` sends
+`cache-control: max-age=300`, so a freshly pushed appcast is not visible immediately —
+measured at 226s, 246s, 266s, 286s stale, then refreshing at exactly 300s. Nothing to fix,
+but publish and then testing straight away shows the old feed, which looks like a broken
+release when it is not.
+
+Triggering a check without touching the installed build: back-date `SULastCheckTime` in
+the app's defaults and relaunch. Sparkle checks on launch once the interval has elapsed.
+
+```bash
+defaults write com.victorrodrigues.ClawBar SULastCheckTime -date "2026-01-01 00:00:00 +0000"
+```
+
 ### Publishing
 
 `Scripts/appcast.sh` stages the notarised DMG into a checkout of a **public** releases
