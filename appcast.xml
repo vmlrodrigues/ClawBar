@@ -3,6 +3,15 @@
   <channel>
     <title>ClawBar</title>
     <item>
+      <title>0.4.5</title>
+      <link>https://github.com/vmlrodrigues/ClawBar/releases/tag/v0.4.5</link>
+      <pubDate>Sat, 15 Aug 2026 13:38:43 +1000</pubDate>
+      <sparkle:version>24</sparkle:version>
+      <sparkle:shortVersionString>0.4.5</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/vmlrodrigues/ClawBar/releases/download/v0.4.5/ClawBar-0.4.5.dmg" type="application/octet-stream" length="2942099" sparkle:edSignature="CL0ZREhxFkONvWTOeFN9vfZf7Ste55+Z79DbjeDApi8k9ZIQAs2HhefkSPMKA1PXbUCB1iWMCM91BXRWrX6mDw==" />
+    </item>
+    <item>
       <title>0.4.4</title>
       <link>https://github.com/vmlrodrigues/ClawBar/releases/tag/v0.4.4</link>
       <pubDate>Sat, 15 Aug 2026 13:31:24 +1000</pubDate>
