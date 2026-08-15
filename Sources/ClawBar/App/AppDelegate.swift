@@ -212,6 +212,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // observed leaving this window at rank 4 in the z-order — mapped, on screen,
         // and completely invisible behind other applications. Floating level plus
         // orderFrontRegardless is what actually brings it to the user.
+        // Floating *only until it has been seen*, then demoted to normal in
+        // `windowDidBecomeKey`.
+        //
+        // Permanently floating was a real bug: Settings then outranked Sparkle's update
+        // dialog, which uses the normal level, so the dialog was unreachable and the
+        // update could not be installed. But plain normal is not the answer either —
+        // macOS refuses focus-stealing to background apps, so an accessory app's window
+        // can open behind everything and never be noticed.
+        //
+        // This gets both. If activation succeeds the window becomes key immediately and
+        // drops to normal, outranking nothing. If macOS denies activation, it never
+        // becomes key and stays floating — which is exactly the case where floating is
+        // the only thing making it visible.
         window.level = .floating
         window.collectionBehavior.insert(.moveToActiveSpace)
         window.hidesOnDeactivate = false
@@ -373,6 +386,13 @@ extension AppDelegate: NSPopoverDelegate {
 }
 
 extension AppDelegate: NSWindowDelegate {
+    /// Once the window has actually reached the user, it has no further need to outrank
+    /// anything — and staying above the normal level would trap Sparkle's update dialog
+    /// behind it, as it did until 0.4.5.
+    func windowDidBecomeKey(_ notification: Notification) {
+        (notification.object as? NSWindow)?.level = .normal
+    }
+
     /// Drop our strong reference so ARC can free the window and, with it, the
     /// NSHostingController and SwiftUI view graph it owns.
     func windowWillClose(_ notification: Notification) {
