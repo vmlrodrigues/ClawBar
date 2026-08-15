@@ -2,6 +2,22 @@ import AppKit
 import Combine
 import SwiftUI
 
+/// A window Escape closes.
+///
+/// Escape arrives as `cancelOperation(_:)` on the responder chain, and if nothing
+/// implements it the key simply does nothing. Third instance of the same theme: macOS
+/// hands ordinary apps a main menu and a set of standard behaviours, and an LSUIElement
+/// app gets none of them — Cmd+V, then Cmd+W, now this.
+///
+/// The shortcut recorder in Settings also uses Escape, to abandon recording. That keeps
+/// working: its local NSEvent monitor runs inside `sendEvent` and swallows the key before
+/// it ever reaches the responder chain.
+final class EscapeClosableWindow: NSWindow {
+    override func cancelOperation(_ sender: Any?) {
+        performClose(sender)
+    }
+}
+
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let model = AppModel()
@@ -247,7 +263,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         content.view.layoutSubtreeIfNeeded()
         let fitting = content.view.fittingSize
 
-        let window = NSWindow(contentViewController: content)
+        let window = EscapeClosableWindow(contentViewController: content)
         window.title = title
         window.styleMask = [.titled, .closable]
         window.isReleasedWhenClosed = false

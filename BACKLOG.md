@@ -7,10 +7,6 @@ a backlog that only records intentions gets the same idea proposed twice a year.
 
 ## Small fixes
 
-**Escape should close windows.** Cmd+W works as of 0.4.6, but Escape does not. Same root
-cause: an `LSUIElement` app is handed no main menu, so every standard keyboard behaviour
-has to be built by hand. `CLAWBAR_DUMP_MENU=1` shows what is actually installed.
-
 **The bar cannot depict a projection over 100%.** The ghost fill clamps at the bar's
 width, so a projected 105% and a projected 200% look identical and only the figure tells
 them apart. A chevron past the right edge would fix it. Only visible when heading over the

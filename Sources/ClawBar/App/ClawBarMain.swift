@@ -37,6 +37,37 @@ enum ClawBarMain {
             exit(0)
         }
 
+        // Escape cannot be synthesised without Accessibility permission, but
+        // `cancelOperation(_:)` is exactly what the key invokes — so calling it directly
+        // exercises the real override rather than a reimplementation.
+        if CommandLine.arguments.contains("--test-escape") {
+            MainActor.assumeIsolated {
+                let window = EscapeClosableWindow(contentViewController: NSViewController())
+                window.styleMask = [.titled, .closable]
+                window.isReleasedWhenClosed = false
+                window.makeKeyAndOrderFront(nil)
+                let before = window.isVisible
+                window.cancelOperation(nil)          // what pressing Escape does
+                let after = window.isVisible
+                print("  visible before : \(before)")
+                print("  visible after  : \(after)")
+                print(before && !after
+                      ? "  PASS — Escape closes the window"
+                      : "  FAIL — window did not close")
+
+                // A plain NSWindow must be unaffected, or the result above proves nothing.
+                let plain = NSWindow(contentViewController: NSViewController())
+                plain.styleMask = [.titled, .closable]
+                plain.isReleasedWhenClosed = false
+                plain.makeKeyAndOrderFront(nil)
+                plain.cancelOperation(nil)
+                print(plain.isVisible
+                      ? "  PASS — a plain NSWindow ignores it, so the subclass is doing the work"
+                      : "  FAIL — plain window closed too; the test proves nothing")
+            }
+            exit(0)
+        }
+
         // Reset labels change shape by distance, and only one branch is reachable at any
         // given moment. This exercises all of them.
         if CommandLine.arguments.contains("--dates") {
