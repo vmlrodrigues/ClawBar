@@ -47,42 +47,54 @@ struct WindowRow: View {
                             .frame(width: 1.5)
                             .offset(x: geo.size.width * min(1, marker))
                     }
+                    // Where the window is heading. `primary` rather than a literal white
+                    // so it stays visible in light mode, where white on the unfilled
+                    // track would disappear.
+                    if let projection {
+                        let fraction = min(1, Double(projection.projectedPercent) / 100)
+                        Rectangle()
+                            .fill(Color.primary.opacity(projection.outlook == .onTrack ? 0.45 : 0.85))
+                            .frame(width: 1.5)
+                            .offset(x: max(0, geo.size.width * fraction - 0.75))
+                    }
                 }
             }
             .frame(height: 5)
 
-            Text(subtitle)
-                .font(.system(size: 10))
-                .foregroundStyle(.secondary)
-
-            if let projection {
-                Text(projectionText(projection))
+            // Shares the reset line rather than claiming a row of its own.
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(subtitle)
                     .font(.system(size: 10))
-                    .foregroundStyle(projectionColour(projection.outlook))
-                    .help("""
-                          Projected from your average rate since the counter last reset \
-                          (\(String(format: "%.1f", projection.ratePerDay)) points/day). \
-                          Accuracy falls off the further ahead it looks — roughly 1.5 \
-                          points per day projected.
-                          """)
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 4)
+                if let projection {
+                    Text("projected \(projection.projectedPercent)%")
+                        .font(.system(size: 10))
+                        .monospacedDigit()
+                        .foregroundStyle(projectionColour(projection.outlook))
+                        .help(projectionDetail(projection))
+                }
             }
         }
     }
 
-    /// Leads with the date when the limit is actually in reach, because that is the
-    /// actionable fact; the percentage is what you check when it is not.
-    private func projectionText(_ p: Projection) -> String {
-        switch p.outlook {
-        case .onTrack:
-            return "~\(p.projectedPercent)% by reset · on track"
-        case .mayRunOut:
-            return "~\(p.projectedPercent)% by reset · may run out"
-        case .willRunOut:
-            guard let at = p.limitReachedAt else { return "~\(p.projectedPercent)% by reset" }
+    /// The date the limit arrives is the actionable fact, but it does not fit the slot —
+    /// so it lives in the tooltip alongside the rate the projection was built from.
+    private func projectionDetail(_ p: Projection) -> String {
+        var lines = [String(format: "Projected from %.1f points/day since the counter last reset.",
+                            p.ratePerDay)]
+        if let at = p.limitReachedAt {
             let f = DateFormatter()
-            f.dateFormat = "EEE d MMM"
-            return "limit ~\(f.string(from: at)) at this rate"
+            f.dateFormat = "EEE d MMM 'at' HH:mm"
+            lines.append("At this rate the limit arrives \(f.string(from: at)).")
         }
+        switch p.outlook {
+        case .onTrack:    lines.append("On track to finish the window under the limit.")
+        case .mayRunOut:  lines.append("Close enough to the limit that it could go either way.")
+        case .willRunOut: lines.append("Heading over the limit before the window resets.")
+        }
+        lines.append("Accuracy falls off with distance — roughly 1.5 points per day projected.")
+        return lines.joined(separator: "\n")
     }
 
     private func projectionColour(_ outlook: Projection.Outlook) -> Color {
@@ -208,8 +220,13 @@ struct PopoverView: View {
             WindowRow(title: "Current session",
                       subtitle: resetLine(model.snapshot?.session),
                       window: model.snapshot?.session,
-                      emphasised: nearestLimit == .session,
-                      fallbackMarker: model.snapshot?.fallbackPercentage)
+                      emphasised: nearestLimit == .session)
+                      // fallbackMarker deliberately not passed. It draws a tick identical
+                      // to the projection marker but means something entirely different —
+                      // and it is guesswork from an undocumented header, unlabelled. Two
+                      // identical marks meaning different things is worse than one fewer
+                      // data point. Restore by passing
+                      // `fallbackMarker: model.snapshot?.fallbackPercentage`.
 
             WindowRow(title: "All models",
                       subtitle: resetLine(model.snapshot?.weekly),

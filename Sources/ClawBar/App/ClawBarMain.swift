@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 
 enum Retainer {
     @MainActor static var delegate: AppDelegate?
@@ -12,6 +13,38 @@ final class Finished: @unchecked Sendable {
 @main
 enum ClawBarMain {
     static func main() {
+        // `ClawBar --render-popover <path.png>` draws the real popover offscreen. UI can
+        // then be checked without Screen Recording permission, which a headless build
+        // machine will not have either.
+        if let i = CommandLine.arguments.firstIndex(of: "--render-popover") {
+            let path = i + 1 < CommandLine.arguments.count
+                ? CommandLine.arguments[i + 1] : "/tmp/clawbar-popover.png"
+            let done = Finished()
+            Task { @MainActor in
+                let model = AppModel()
+                await model.refresh()
+                let dark = CommandLine.arguments.contains("--dark")
+                let renderer = ImageRenderer(
+                    content: PopoverView(model: model, openSettings: {}, openOnboarding: {})
+                        .environment(\.colorScheme, dark ? .dark : .light)
+                        .background(dark ? Color.black : Color.white)
+                )
+                renderer.scale = 2
+                if let image = renderer.nsImage,
+                   let tiff = image.tiffRepresentation,
+                   let rep = NSBitmapImageRep(data: tiff),
+                   let png = rep.representation(using: .png, properties: [:]) {
+                    try? png.write(to: URL(fileURLWithPath: path))
+                    print("wrote \(path)")
+                } else {
+                    print("render failed")
+                }
+                done.flag = true
+            }
+            while !done.flag { RunLoop.main.run(until: Date().addingTimeInterval(0.05)) }
+            exit(0)
+        }
+
         // `ClawBar --projection` prints what the popover would show and exits. Exercises
         // the real code path rather than a reimplementation of the arithmetic.
         if CommandLine.arguments.contains("--projection") {

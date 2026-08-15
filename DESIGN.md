@@ -456,7 +456,26 @@ unknown.
 History lives in its own `projection-history.json`, **not** the usage log, so that turning
 off an optional diagnostic cannot silently break a feature.
 
-`ClawBar --projection` prints what the popover would show, exercising the real code path.
+### Diagnostics — run them from the signed bundle
+
+```
+dist/ClawBar.app/Contents/MacOS/ClawBar --projection
+dist/ClawBar.app/Contents/MacOS/ClawBar --render-popover /tmp/p.png [--dark]
+```
+
+`--projection` prints what the popover would show, exercising the real code path.
+`--render-popover` draws the popover offscreen, so UI can be checked without Screen
+Recording permission. (Its `ImageRenderer` cannot draw AppKit-backed Pickers — they come
+out as yellow placeholders. That is the renderer, not the app.)
+
+**Never run these from `.build/release/ClawBar`.** That binary is ad-hoc signed: no team
+identifier, a different bundle identifier, and *no designated requirement at all*. The
+Keychain therefore identifies it by exact code hash, so every rebuild is an unrecognised
+new client asking for the token — and "Always Allow" cannot stick, because it was granted
+to a hash that no longer exists. The result is an endless stream of Keychain prompts.
+
+`dist/ClawBar.app` carries a designated requirement identical to the installed copy's, so
+it inherits the trust already granted and prompts for nothing.
 
 ## 11. Sparkle
 
