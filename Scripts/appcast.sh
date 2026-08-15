@@ -14,6 +14,16 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Cutting a release means editing VERSION first. Publishing a build whose version already
+# has a release would overwrite that entry in the appcast and point it at different bits.
+if [ -f "$ROOT/VERSION" ]; then
+    WANT="$(tr -d '[:space:]' < "$ROOT/VERSION")"
+    if git -C "$ROOT" rev-parse "v$WANT" >/dev/null 2>&1; then
+        echo "error: v$WANT is already released. Bump the VERSION file before publishing." >&2
+        exit 1
+    fi
+fi
 APP="$ROOT/dist/ClawBar.app"
 DMG="$ROOT/dist/ClawBar.dmg"
 APPCAST="$ROOT/appcast.xml"

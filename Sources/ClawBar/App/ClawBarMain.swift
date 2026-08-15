@@ -13,6 +13,12 @@ final class Finished: @unchecked Sendable {
 @main
 enum ClawBarMain {
     static func main() {
+        // Same string Settings shows, so it can be checked without opening the window.
+        if CommandLine.arguments.contains("--version") {
+            print("ClawBar \(bundleVersionString())")
+            exit(0)
+        }
+
         // `--test-notifications` drives the real Notifier through a scripted sequence of
         // utilisations. Threshold alerts are otherwise untestable: you cannot burn to 50%
         // of a weekly window on demand, and waiting for it exercises exactly one path

@@ -85,6 +85,12 @@ swift package resolve
 ./Scripts/build.sh            # SIGN=0 to skip code signing
 ```
 
+The version comes from the `VERSION` file and changes only when a release is cut; the
+build number is the git commit count, derived automatically. Sparkle compares the build
+number, so it must always increase — deriving it removes the chance of a duplicate, which
+would silently break updates for anyone already on that build. Settings shows both, e.g.
+`ClawBar 0.4.2 (14)`, since two builds can share a version.
+
 `Scripts/build.sh` assembles the `.app` bundle, embeds Sparkle, and signs everything. It
 picks up the first Developer ID Application identity in your Keychain; override with
 `IDENTITY=`.

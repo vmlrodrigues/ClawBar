@@ -49,9 +49,7 @@ final class UpdaterController: ObservableObject {
 
     var lastCheck: Date? { controller.updater.lastUpdateCheckDate }
 
-    var version: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
-    }
+    var version: String { bundleVersionString() }
 
     func checkForUpdates() {
         NSApp.activate()

@@ -76,6 +76,15 @@ func shortDuration(_ interval: TimeInterval) -> String {
     return "\(m)m"
 }
 
+/// Version *and* build. The version only moves when a release is cut, so two different
+/// builds can legitimately report the same one — the build number tells them apart, and
+/// it is what Sparkle actually compares.
+func bundleVersionString() -> String {
+    let short = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
+    let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
+    return "\(short) (\(build))"
+}
+
 func clockTime(_ date: Date) -> String {
     let f = DateFormatter()
     f.dateFormat = "HH:mm"

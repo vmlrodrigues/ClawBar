@@ -2,24 +2,35 @@
 # Builds ClawBar.app and signs it with a Developer ID identity.
 #
 #   ./Scripts/build.sh                 release build, signed
-#   VERSION=0.2.0 BUILD=7 ./Scripts/build.sh
 #   SIGN=0 ./Scripts/build.sh          skip signing (local testing only)
+#
+# VERSION comes from the VERSION file and changes only when cutting a release — not on
+# every build. Bumping it per build makes the version track whoever is iterating rather
+# than anything a user would recognise; this project once produced eight versions of
+# which two were ever published.
+#
+# BUILD is the git commit count: monotonic, reproducible from any checkout, and nothing
+# to maintain by hand. Sparkle compares this — not the version string — to decide whether
+# an update exists, and a hand-kept counter is exactly the sort of thing that gets
+# duplicated or skipped.
 #
 # Notarisation is a separate step — see Scripts/notarize.sh.
 
 set -euo pipefail
 
 APP_NAME="ClawBar"
-VERSION="${VERSION:-0.1.0}"
-BUILD="${BUILD:-1}"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+DIST="$ROOT/dist"
+APP="$DIST/$APP_NAME.app"
+
+VERSION="${VERSION:-$(tr -d '[:space:]' < "$ROOT/VERSION" 2>/dev/null)}"
+[ -n "$VERSION" ] || { echo "error: no VERSION file at $ROOT/VERSION" >&2; exit 1; }
+BUILD="${BUILD:-$(git -C "$ROOT" rev-list --count HEAD 2>/dev/null || echo 1)}"
+
 # Auto-detected rather than hardcoded, so a fork signs with its own identity.
 IDENTITY="${IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null \
     | awk -F'"' '/Developer ID Application/{print $2; exit}')}"
 SIGN="${SIGN:-1}"
-
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DIST="$ROOT/dist"
-APP="$DIST/$APP_NAME.app"
 
 echo "==> Building $APP_NAME $VERSION ($BUILD)"
 swift build -c release --package-path "$ROOT"

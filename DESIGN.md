@@ -583,7 +583,29 @@ keeps the prefix constant and lets the stock tool do the whole job. Cost is repo
 roughly 5 MB per release, so prune old DMGs periodically. Budgetry solves the same problem
 with a custom `appcast-add.py`; that is the alternative if the repo grows awkward.
 
-## 12. Build order
+## 12. Versioning
+
+**`CFBundleShortVersionString` changes only when a release is cut.** It lives in the
+`VERSION` file at the repo root; `Scripts/build.sh` reads it and never invents one.
+
+**`CFBundleVersion` is the git commit count**, derived at build time. Monotonic,
+reproducible from any checkout, and nothing to maintain by hand — which matters because
+Sparkle compares *this*, not the version string, to decide whether an update exists. A
+hand-kept counter is exactly the sort of thing that gets duplicated or skipped, and a
+duplicate silently breaks updates for everyone already on that build.
+
+This rule exists because the opposite was done first: the version was bumped on every
+build, producing eight versions of which two were ever published. The number tracked
+whoever was iterating rather than anything a user would recognise.
+
+Two builds can therefore legitimately report the same version, so Settings shows both —
+`ClawBar 0.4.2 (14)`.
+
+Cutting a release: edit `VERSION`, then build → notarise → appcast → `gh release create`.
+`Scripts/appcast.sh` refuses to publish if a tag for the current `VERSION` already exists,
+since that would overwrite a live appcast entry and point it at different bits.
+
+## 13. Build order
 
 1. `AnthropicUsageClient` + `HeaderParser` + `UsageSnapshot`, with a fixture-backed test
    using the captured headers.
