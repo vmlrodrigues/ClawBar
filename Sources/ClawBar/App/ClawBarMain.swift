@@ -216,8 +216,10 @@ enum ClawBarMain {
                 let cases: [(Int, Int, String)] = [
                     (20, 61, "on track"),
                     (45, 90, "may run out"),
-                    (60, 120, "will run out"),
-                    (74, 99, "right on the line"),
+                    (60, 99, "right on the line"),
+                    (85, 110, "over the limit — one chevron"),
+                    (85, 140, "well over — two"),
+                    (85, 200, "double — three"),
                 ]
                 let sheet = VStack(alignment: .leading, spacing: 26) {
                     ForEach(cases, id: \.1) { current, projected, note in

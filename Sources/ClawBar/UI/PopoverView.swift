@@ -53,6 +53,25 @@ struct WindowRow: View {
                             .fill(colour.opacity(0.9))
                             .frame(width: 2)
                             .offset(x: max(0, reach - 2))
+
+                        // Past 100% the fill saturates and stops carrying information,
+                        // so 105% and 200% drew an identical bar. Chevrons sit *outside*
+                        // the right edge, in the popover's padding, which reads as "off
+                        // the end of the scale" and costs the bar no width. Rescaling
+                        // instead would make a full bar mean different things at
+                        // different times.
+                        if projection.projectedPercent > 100 {
+                            let over = projection.projectedPercent - 100
+                            let count = over >= 75 ? 3 : (over >= 25 ? 2 : 1)
+                            HStack(spacing: -2) {
+                                ForEach(0..<count, id: \.self) { _ in
+                                    Text("›").font(.system(size: 13, weight: .bold))
+                                }
+                            }
+                            .foregroundStyle(colour)
+                            .fixedSize()
+                            .offset(x: geo.size.width + 3)
+                        }
                     }
                     if let window {
                         Capsule()
@@ -65,7 +84,23 @@ struct WindowRow: View {
 
             // A caret sitting directly under the projected point, so the number is
             // anchored to the place it refers to instead of floating at the margin.
-            if let projection {
+            // Off the scale: the caret would point at the clamped position, indicating
+            // 100% while the label says 200%. A pointer that cannot reach its target
+            // should not pretend to — the chevrons carry the meaning instead, and the
+            // label right-aligns beneath them.
+            if let projection, projection.projectedPercent > 100 {
+                Text("projected \(projection.projectedPercent)%")
+                    .font(.system(size: 9, weight: .medium))
+                    .monospacedDigit()
+                    .foregroundStyle(projectionColour(projection.outlook))
+                    // Trailing inset keeps it clear of the chevrons, which sit just
+                    // beyond the bar's right edge; the top padding matches the breathing
+                    // room the caret variant gets from its 12pt row.
+                    .padding(.top, 3)
+                    .padding(.trailing, 20)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .help(projectionDetail(projection))
+            } else if let projection {
                 GeometryReader { geo in
                     let fraction = min(1, Double(projection.projectedPercent) / 100)
                     let x = geo.size.width * fraction

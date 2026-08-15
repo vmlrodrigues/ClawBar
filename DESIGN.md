@@ -586,8 +586,31 @@ matters. At 45% heading to 90% the bar was drawing a calm grey extension under a
 label. The ghost now goes amber, then red, so the bar tells the story before the number
 is read.
 
-Known limitation: the bar cannot depict overflow, so a projection of 105% and one of 200%
-fill it identically and only the figure distinguishes them.
+### Past 100%, the bar runs out of room
+
+A fill clamped at the bar's width saturates: a projection of 105% and one of 200% drew an
+identical bar, so the graphic stopped carrying information exactly where the difference
+matters most — scraping past the limit versus blowing through it twice over call for
+different responses.
+
+Chevrons sit **outside** the right edge, in the popover's padding: `›` for 100–124%, `››`
+for 125–174%, `›››` beyond. They read as "off the end of the scale", and cost the bar no
+width, so a full bar always means the same quantity. Rescaling the bar to fit 200% was
+rejected for exactly that reason — the same visual would represent different amounts
+depending on the projection, and the current-usage fill would move for reasons unrelated
+to usage.
+
+**Above 100% the caret is dropped.** The first attempt kept it, and it pointed at the
+clamped position — indicating 100% while the label read 200%, which is the original bug
+relocated rather than fixed. It also sat immediately beside the chevrons: two different
+red marks meaning different things in the same place, the same error as the old
+fallback-percentage tick. A pointer that cannot reach its target should not pretend to, so
+the chevrons carry the meaning and the label right-aligns beneath them.
+
+One soft spot worth naming: the 25%- and 75%-over boundaries between one, two and three
+chevrons are judgement, not measurement. Everything else in the projection — the estimator,
+the confidence margin, the session display threshold — comes from backtesting. These do
+not, because there is nothing to calibrate against.
 
 Five other treatments were built and rendered before this one was chosen — a faint tick, a
 plain ghost fill, a dashed outline, and two variants putting "20% → 61%" in the header.

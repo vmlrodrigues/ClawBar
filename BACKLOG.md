@@ -7,11 +7,6 @@ a backlog that only records intentions gets the same idea proposed twice a year.
 
 ## Small fixes
 
-**The bar cannot depict a projection over 100%.** The ghost fill clamps at the bar's
-width, so a projected 105% and a projected 200% look identical and only the figure tells
-them apart. A chevron past the right edge would fix it. Only visible when heading over the
-limit, which has not happened yet.
-
 **A stray 500×500 offscreen window belongs to the process.** Noticed while checking window
 layering; harmless and never on screen, but unexplained. Suspect an artefact of forcing
 SwiftUI layout before the real window exists.
