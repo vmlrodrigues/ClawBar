@@ -13,6 +13,69 @@ final class Finished: @unchecked Sendable {
 @main
 enum ClawBarMain {
     static func main() {
+        // `--test-notifications` drives the real Notifier through a scripted sequence of
+        // utilisations. Threshold alerts are otherwise untestable: you cannot burn to 50%
+        // of a weekly window on demand, and waiting for it exercises exactly one path
+        // once. This walks every branch — first crossing, latch, hysteresis release,
+        // re-fire, higher thresholds, and the window reset that clears the latches.
+        if CommandLine.arguments.contains("--test-notifications") {
+            let done = Finished()
+            Task { @MainActor in
+                let notifier = Notifier()
+                let status = await notifier.authorizationStatus()
+                let name: String
+                switch status {
+                case .authorized:    name = "authorized"
+                case .denied:        name = "DENIED — nothing will appear"
+                case .notDetermined: name = "notDetermined — never prompted"
+                case .provisional:   name = "provisional (quiet delivery)"
+                case .ephemeral:     name = "ephemeral"
+                @unknown default:    name = "unknown"
+                }
+                print("authorisation: \(name)\n")
+
+                let weekA = Date().addingTimeInterval(3 * 86_400)
+                let weekB = Date().addingTimeInterval(10 * 86_400)   // a different window
+                // (weekly %, reset, what should fire, why)
+                let script: [(Int, Date, [String], String)] = [
+                    (40, weekA, [],              "below every threshold"),
+                    (55, weekA, ["weekly/50"],   "crosses 50"),
+                    (60, weekA, [],              "still above 50 — latched, must not repeat"),
+                    (52, weekA, [],              "dipped but within hysteresis — still latched"),
+                    (44, weekA, [],              "dropped >5 below 50 — releases the latch"),
+                    (55, weekA, ["weekly/50"],   "crosses 50 again after release"),
+                    (85, weekA, ["weekly/80"],   "crosses 80; 50 stays latched"),
+                    (96, weekA, ["weekly/95"],   "crosses 95"),
+                    (55, weekB, ["weekly/50"],   "new window — latches cleared, 50 fires again"),
+                ]
+
+                var failures = 0
+                for (percent, reset, expected, why) in script {
+                    let snapshot = Snapshot(
+                        session: nil,
+                        weekly: UsageWindow(utilization: Double(percent) / 100,
+                                            resetsAt: reset, status: "allowed"),
+                        overage: nil, representative: "", fallbackPercentage: nil,
+                        fetchedAt: Date())
+                    let fired = notifier.evaluate(snapshot)
+                    let ok = fired == expected
+                    if !ok { failures += 1 }
+                    print(String(format: "  %@ %3d%%  fired %-14@ expected %-14@ %@",
+                                 ok ? "PASS" : "FAIL", percent,
+                                 (fired.isEmpty ? "—" : fired.joined(separator: ",")) as NSString,
+                                 (expected.isEmpty ? "—" : expected.joined(separator: ",")) as NSString,
+                                 why as NSString))
+                }
+                print("\n\(script.count - failures)/\(script.count) passed")
+                if status == .authorized {
+                    print("4 notifications should have appeared in Notification Centre.")
+                }
+                done.flag = true
+            }
+            while !done.flag { RunLoop.main.run(until: Date().addingTimeInterval(0.05)) }
+            exit(0)
+        }
+
         // `--render-states` draws the projection across its range, including the cases
         // real data will not produce on demand: near the limit, and over it.
         if let i = CommandLine.arguments.firstIndex(of: "--render-states") {

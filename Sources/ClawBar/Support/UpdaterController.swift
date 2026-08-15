@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import Sparkle
+import UserNotifications
 
 /// Sparkle's user driver delegate.
 ///
@@ -55,5 +56,11 @@ final class UpdaterController: ObservableObject {
     func checkForUpdates() {
         NSApp.activate()
         controller.updater.checkForUpdates()
+    }
+
+    /// Settings already has this object to hand; routing the query through it avoids
+    /// threading a second dependency into the view purely to read one status.
+    func notificationAuthorization() async -> UNAuthorizationStatus {
+        await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
     }
 }

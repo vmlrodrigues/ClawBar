@@ -510,7 +510,18 @@ plain ghost fill, a dashed outline, and two variants putting "20% → 61%" in th
 dist/ClawBar.app/Contents/MacOS/ClawBar --projection
 dist/ClawBar.app/Contents/MacOS/ClawBar --render-popover /tmp/p.png [--dark]
 dist/ClawBar.app/Contents/MacOS/ClawBar --render-states /tmp/s.png
+dist/ClawBar.app/Contents/MacOS/ClawBar --test-notifications
 ```
+
+`--test-notifications` drives the real `Notifier` through a scripted sequence of
+utilisations and asserts what fired at each step. Threshold alerts are otherwise
+effectively untestable — you cannot burn to 50% of a weekly window on demand, and waiting
+for it exercises one path, once. The script covers first crossing, the latch, hysteresis
+release, re-firing after release, the higher thresholds, and the window change that clears
+the latches. It also prints live authorisation status, since a denied app fails silently.
+
+Verified end to end: 9/9 assertions, and the four expected alerts confirmed present in
+Notification Centre's own database rather than merely reported as sent.
 
 `--projection` prints what the popover would show, exercising the real code path.
 `--render-popover` draws the popover offscreen, so UI can be checked without Screen

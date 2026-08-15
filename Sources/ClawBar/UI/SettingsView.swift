@@ -8,6 +8,7 @@ struct SettingsView: View {
 
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var launchError: String?
+    @State private var notificationWarning: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -48,6 +49,21 @@ struct SettingsView: View {
 
             section("Alerts") {
                 Toggle("Notify at 50%, 80% and 95%", isOn: $prefs.notificationsEnabled)
+                // Without this the toggle can sit on while macOS silently drops every
+                // alert, and there is nothing in the app to suggest why.
+                if prefs.notificationsEnabled, let warning = notificationWarning {
+                    HStack(spacing: 6) {
+                        Label(warning, systemImage: "exclamationmark.triangle.fill")
+                            .font(.system(size: 10)).foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Button("Open Settings") {
+                            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.notifications") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
+                        .controlSize(.small)
+                    }
+                }
             }
 
             section("Diagnostics") {
@@ -105,6 +121,16 @@ struct SettingsView: View {
                 Text("Usage is read from undocumented response headers and may break without notice.")
                     .font(.system(size: 10)).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .task {
+            switch await updater.notificationAuthorization() {
+            case .denied:
+                notificationWarning = "Notifications are turned off for ClawBar in System Settings."
+            case .notDetermined:
+                notificationWarning = "macOS has not been asked for permission yet."
+            default:
+                notificationWarning = nil
             }
         }
         .padding(22)

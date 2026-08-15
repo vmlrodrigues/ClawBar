@@ -9,7 +9,7 @@ import UserNotifications
 /// would otherwise re-fire every poll.
 @MainActor
 final class Notifier {
-    private static let thresholds = [50, 80, 95]
+    static let thresholds = [50, 80, 95]
 
     private struct WindowState {
         var resetsAt: Date?
@@ -17,24 +17,36 @@ final class Notifier {
     }
 
     private var states: [String: WindowState] = [:]
-    private var authorized = false
 
     func requestAuthorization() {
         UNUserNotificationCenter.current()
-            .requestAuthorization(options: [.alert, .sound]) { [weak self] granted, _ in
-                Task { @MainActor in self?.authorized = granted }
-            }
+            .requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
-    func evaluate(_ snapshot: Snapshot) {
-        guard Preferences.shared.notificationsEnabled, authorized else { return }
-        check(key: "session", label: "Current session", window: snapshot.session)
-        check(key: "weekly", label: "Weekly limit", window: snapshot.weekly)
+    /// Asked live rather than cached at launch. Permission can be revoked in System
+    /// Settings at any time, and a stale `true` would post into the void while the
+    /// Settings toggle claimed everything was fine.
+    func authorizationStatus() async -> UNAuthorizationStatus {
+        await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
     }
 
-    private func check(key: String, label: String, window: UsageWindow?) {
-        guard let window else { return }
+    /// Returns the thresholds that fired, so the behaviour can be exercised without
+    /// waiting for real usage to climb. There is no authorisation gate here on purpose:
+    /// `UNUserNotificationCenter.add` is already a no-op when permission is absent, and a
+    /// second gate cached at launch only added a way to be wrong.
+    @discardableResult
+    func evaluate(_ snapshot: Snapshot) -> [String] {
+        guard Preferences.shared.notificationsEnabled else { return [] }
+        var fired: [String] = []
+        fired += check(key: "session", label: "Current session", window: snapshot.session)
+        fired += check(key: "weekly", label: "Weekly limit", window: snapshot.weekly)
+        return fired
+    }
+
+    private func check(key: String, label: String, window: UsageWindow?) -> [String] {
+        guard let window else { return [] }
         var state = states[key] ?? WindowState()
+        var fired: [String] = []
 
         // A new window is a clean slate.
         if state.resetsAt != window.resetsAt {
@@ -46,6 +58,7 @@ final class Notifier {
             if window.percent >= threshold {
                 if !state.fired.contains(threshold) {
                     state.fired.insert(threshold)
+                    fired.append("\(key)/\(threshold)")
                     post(title: "\(label) at \(window.percent)%",
                          body: "Resets \(clockTime(window.resetsAt)) · in \(shortDuration(window.resetsAt.timeIntervalSinceNow)).")
                 }
@@ -55,6 +68,7 @@ final class Notifier {
         }
 
         states[key] = state
+        return fired
     }
 
     private func post(title: String, body: String) {
