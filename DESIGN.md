@@ -239,16 +239,39 @@ the two never appear to disagree.
 No header exposes it, and requesting a different model does not produce one. ClawBar
 cannot show per-model limits, and should not imply completeness it does not have.
 
-Whichever window is **nearer its ceiling** is visually emphasised and badged "closest to
-limit" — computed by comparing the two utilization figures, not taken from
-`representative-claim` (see VERIFICATION.md; that header never varied across 110 samples,
-including 52 where it disagreed with the numbers). The badge previously read "binding",
-which was both jargon and a claim the data did not support.
+### Removed: the "closest to limit" badge
 
-A `fallback-percentage` marker is drawn
-on the 5h track (observed `0.5`) behind an off-by-default setting labelled as a guess —
-it most likely marks the Opus→Sonnet auto-downgrade point, but that is inference, not
-observation.
+One window used to be badged as the one nearest its ceiling. It went through two
+definitions and neither survived.
+
+First it was driven by `representative-claim`, labelled "binding". That header turned out
+to mean nothing usable — `five_hour` in all 110 logged samples, including 52 where the
+weekly window was the more consumed of the two (VERIFICATION.md).
+
+It was then recomputed by comparing the two utilization figures and relabelled "closest to
+limit". That is worse than redundant. Two adjacent, identically formatted numbers already
+say which is larger — but the badge implies it is answering "what will stop you", and
+percentage cannot answer that when the windows have wildly different lifespans:
+
+```
+845 readings
+  badge sat on 'Current session' : 247  (29%)
+  median time until that window vanished entirely : 1.6h
+  time the weekly window it outranked had left    : 5.3 days
+```
+
+Nearly a third of the time it pointed at a window with about ninety minutes to live while
+dismissing one with five days to accumulate. The consequences are asymmetric too: hitting
+the session limit costs hours, hitting the weekly costs days, so equal percentages are not
+equally important.
+
+The only version that would earn the space is "runs out first", computed from rate and
+time remaining — which needs a session projection, and a five-hour window is far too
+bursty to fit a rate to. So the badge is gone, along with the title emphasis it drove.
+
+The `fallback-percentage` marker was removed for a related reason: it drew a tick visually
+identical to the projection marker while meaning something entirely different, and was
+unlabelled guesswork from an undocumented header.
 
 Footer: last-updated age, Refresh, Settings, Quit.
 

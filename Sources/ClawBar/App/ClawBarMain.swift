@@ -40,7 +40,6 @@ enum ClawBarMain {
                                 subtitle: "resets 05:00 · in 4d 16h",
                                 window: UsageWindow(utilization: Double(current) / 100,
                                                     resetsAt: reset, status: "allowed"),
-                                emphasised: false,
                                 projection: Projection(
                                     ratePerDay: 8.3,
                                     projectedPercent: projected,

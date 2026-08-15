@@ -4,7 +4,6 @@ struct WindowRow: View {
     let title: String
     let subtitle: String
     let window: UsageWindow?
-    let emphasised: Bool
     var projection: Projection?
 
     /// Enough for "projected 100%" at 9pt. A fixed box means the caret can be positioned
@@ -14,14 +13,15 @@ struct WindowRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
+                // Uniform weight. A "closest to limit" badge used to mark whichever
+                // window had the higher percentage, but percentage cannot answer the
+                // question that badge implied: across 845 logged readings it sat on the
+                // session window 29% of the time, and that window had a median 1.6 hours
+                // left to live while the weekly one it outranked had 5.3 days. Ranking
+                // two windows of wildly different lifespans by percentage is backwards
+                // exactly when it matters, so both the badge and the emphasis are gone.
                 Text(title)
-                    .font(.system(size: 12, weight: emphasised ? .semibold : .regular))
-                if emphasised {
-                    Text("closest to limit")
-                        .font(.system(size: 9, weight: .medium))
-                        .padding(.horizontal, 5).padding(.vertical, 1)
-                        .background(Capsule().fill(Color.secondary.opacity(0.18)))
-                }
+                    .font(.system(size: 12, weight: .medium))
                 Spacer()
                 Text(window.map { "\($0.percent)%" } ?? "—")
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
@@ -140,28 +140,11 @@ struct PopoverView: View {
         return "resets \(clockTime(window.resetsAt)) · in \(shortDuration(window.resetsAt.timeIntervalSince(now)))"
     }
 
-    /// Which window is nearer its ceiling, and therefore the one that will stop you first.
-    ///
-    /// Computed from utilization rather than taken from the server's
-    /// `representative-claim` header. That header read `five_hour` in all 110 logged
-    /// samples — including 52 where the weekly window was the more consumed of the two —
-    /// so whatever it means, it is not "the limit that binds". See VERIFICATION.md.
+    /// Old enough that it could visibly disagree with Claude's own panel — usage from
+    /// claude.ai or the desktop app is invisible until the next refresh.
     private var isStale: Bool {
         guard let fetched = model.snapshot?.fetchedAt else { return false }
         return now.timeIntervalSince(fetched) > 5 * 60
-    }
-
-    private enum Nearest { case session, weekly, tie }
-
-    private var nearestLimit: Nearest {
-        let session = model.snapshot?.session?.percent
-        let weekly = model.snapshot?.weekly?.percent
-        switch (session, weekly) {
-        case let (s?, w?): return s == w ? .tie : (s > w ? .session : .weekly)
-        case (_?, nil):    return .session
-        case (nil, _?):    return .weekly
-        case (nil, nil):   return .tie
-        }
     }
 
     var body: some View {
@@ -237,8 +220,7 @@ struct PopoverView: View {
         VStack(alignment: .leading, spacing: 12) {
             WindowRow(title: "Current session",
                       subtitle: resetLine(model.snapshot?.session),
-                      window: model.snapshot?.session,
-                      emphasised: nearestLimit == .session)
+                      window: model.snapshot?.session)
                       // fallbackMarker deliberately not passed. It draws a tick identical
                       // to the projection marker but means something entirely different —
                       // and it is guesswork from an undocumented header, unlabelled. Two
@@ -249,7 +231,6 @@ struct PopoverView: View {
             WindowRow(title: "All models",
                       subtitle: resetLine(model.snapshot?.weekly),
                       window: model.snapshot?.weekly,
-                      emphasised: nearestLimit == .weekly,
                       projection: model.weeklyProjection)
 
             // Only meaningful once credits are actually being consumed; the official
@@ -257,8 +238,7 @@ struct PopoverView: View {
             if let overage = model.snapshot?.overage, overage.utilization > 0 {
                 WindowRow(title: "Usage credits",
                           subtitle: resetLine(overage),
-                          window: overage,
-                          emphasised: false)
+                          window: overage)
             }
         }
     }
