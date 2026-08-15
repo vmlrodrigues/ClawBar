@@ -13,6 +13,30 @@ final class Finished: @unchecked Sendable {
 @main
 enum ClawBarMain {
     static func main() {
+        // `--render-onboarding` draws the first-run window. Pair with
+        // CLAWBAR_FAKE_NO_CLAUDE=1 to see the branch for someone who only uses Claude
+        // Desktop, which is otherwise unreachable on a development machine.
+        if let i = CommandLine.arguments.firstIndex(of: "--render-onboarding") {
+            let path = i + 1 < CommandLine.arguments.count
+                ? CommandLine.arguments[i + 1] : "/tmp/clawbar-onboarding.png"
+            MainActor.assumeIsolated {
+                let renderer = ImageRenderer(
+                    content: OnboardingView(onStored: {}, onCancel: {})
+                        .environment(\.colorScheme, .dark)
+                        .background(Color.black)
+                )
+                renderer.scale = 2
+                if let image = renderer.nsImage,
+                   let tiff = image.tiffRepresentation,
+                   let rep = NSBitmapImageRep(data: tiff),
+                   let png = rep.representation(using: .png, properties: [:]) {
+                    try? png.write(to: URL(fileURLWithPath: path))
+                    print("wrote \(path)")
+                } else { print("render failed") }
+            }
+            exit(0)
+        }
+
         // Same string Settings shows, so it can be checked without opening the window.
         if CommandLine.arguments.contains("--version") {
             print("ClawBar \(bundleVersionString())")
