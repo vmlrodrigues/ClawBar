@@ -169,7 +169,7 @@ the ~80 lines of status-item plumbing.
   A 20s display timer ticks it between polls — no network, and the change-gate means at
   most one attributed-string assignment per minute.
 
-Severity: normal < 50%, warning 50–79%, critical ≥ 80%, applied to glyph and text
+Severity: normal < 80%, warning 80–94%, critical ≥ 95%, applied to glyph and text
 together. Normal uses `labelColor` so it follows light/dark; warning and critical use
 `systemOrange` / `systemRed`, which read correctly against both menu bar appearances.
 
@@ -301,7 +301,27 @@ unlabelled guesswork from an undocumented header.
 
 Footer: last-updated age, Refresh, Settings, Quit.
 
-Notifications via `UNUserNotificationCenter` at 50/80/95% per window, latched so each
+### Where the colours change
+
+| Range | State | Colour | Also happens here |
+|---|---|---|---|
+| 0–79% | normal | `labelColor` — follows light/dark | — |
+| 80–94% | warning | `systemOrange` | notification; poll interval floors at 60s |
+| 95–100% | critical | `systemRed` | notification |
+
+These were 50 and 80. Half a window used is unremarkable — nothing needs doing — and a
+colour that fires when nothing needs doing is a colour you stop reading. 80 is the first
+point where the end is genuinely in sight; 95 is "about to be blocked".
+
+Moving them also removed a mismatch. Notifications fired at 50/80/95 against colour bands
+at 50/80, so 95 alerted while nothing on screen changed. The two now share thresholds
+exactly, and the 50% notification is gone for the same reason the 50% colour band is: a
+notification is a *more* intrusive way to say nothing than a colour is.
+
+The projection's colours are a separate system and deliberately do not use these bands —
+they are keyed to crossing 100%, not to being at 80. See §10.
+
+Notifications via `UNUserNotificationCenter` at 80/95% per window, latched so each
 threshold fires once per crossing, released on window reset or a 5-point drop below the
 threshold (hysteresis).
 

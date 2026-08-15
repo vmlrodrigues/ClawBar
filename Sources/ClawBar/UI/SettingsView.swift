@@ -60,7 +60,7 @@ struct SettingsView: View {
             }
 
             section("Alerts") {
-                Toggle("Notify at 50%, 80% and 95%", isOn: $prefs.notificationsEnabled)
+                Toggle("Notify at 80% and 95%", isOn: $prefs.notificationsEnabled)
                 // Without this the toggle can sit on while macOS silently drops every
                 // alert, and there is nothing in the app to suggest why.
                 if prefs.notificationsEnabled, let warning = notificationWarning {

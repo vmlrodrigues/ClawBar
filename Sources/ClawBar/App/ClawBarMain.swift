@@ -96,7 +96,7 @@ enum ClawBarMain {
         }
 
         // `--test-notifications` drives the real Notifier through a scripted sequence of
-        // utilisations. Threshold alerts are otherwise untestable: you cannot burn to 50%
+        // utilisations. Threshold alerts are otherwise untestable: you cannot burn to 80%
         // of a weekly window on demand, and waiting for it exercises exactly one path
         // once. This walks every branch — first crossing, latch, hysteresis release,
         // re-fire, higher thresholds, and the window reset that clears the latches.
@@ -120,15 +120,14 @@ enum ClawBarMain {
                 let weekB = Date().addingTimeInterval(10 * 86_400)   // a different window
                 // (weekly %, reset, what should fire, why)
                 let script: [(Int, Date, [String], String)] = [
-                    (40, weekA, [],              "below every threshold"),
-                    (55, weekA, ["weekly/50"],   "crosses 50"),
-                    (60, weekA, [],              "still above 50 — latched, must not repeat"),
-                    (52, weekA, [],              "dipped but within hysteresis — still latched"),
-                    (44, weekA, [],              "dropped >5 below 50 — releases the latch"),
-                    (55, weekA, ["weekly/50"],   "crosses 50 again after release"),
-                    (85, weekA, ["weekly/80"],   "crosses 80; 50 stays latched"),
-                    (96, weekA, ["weekly/95"],   "crosses 95"),
-                    (55, weekB, ["weekly/50"],   "new window — latches cleared, 50 fires again"),
+                    (60, weekA, [],              "below every threshold — 60% is now silent"),
+                    (85, weekA, ["weekly/80"],   "crosses 80"),
+                    (90, weekA, [],              "still above 80 — latched, must not repeat"),
+                    (77, weekA, [],              "dipped but within hysteresis (>75) — still latched"),
+                    (74, weekA, [],              "dropped >5 below 80 — releases the latch"),
+                    (85, weekA, ["weekly/80"],   "crosses 80 again after release"),
+                    (96, weekA, ["weekly/95"],   "crosses 95; 80 stays latched"),
+                    (85, weekB, ["weekly/80"],   "new window — latches cleared, 80 fires again"),
                 ]
 
                 var failures = 0
@@ -155,6 +154,52 @@ enum ClawBarMain {
                 done.flag = true
             }
             while !done.flag { RunLoop.main.run(until: Date().addingTimeInterval(0.05)) }
+            exit(0)
+        }
+
+        // `--render-bands` draws the health bands at their boundaries, so the colour
+        // spec can be seen rather than read off constants.
+        if let i = CommandLine.arguments.firstIndex(of: "--render-bands") {
+            let path = i + 1 < CommandLine.arguments.count
+                ? CommandLine.arguments[i + 1] : "/tmp/clawbar-bands.png"
+            MainActor.assumeIsolated {
+                let reset = Date().addingTimeInterval(3 * 3600)
+                let points: [(Int, String)] = [
+                    (51, "normal — was orange before 0.5.0"),
+                    (79, "normal — last point"),
+                    (80, "warning begins; also the poll-interval floor"),
+                    (94, "warning — last point"),
+                    (95, "critical begins; notification fires"),
+                    (99, "critical"),
+                ]
+                let sheet = VStack(alignment: .leading, spacing: 18) {
+                    ForEach(points, id: \.0) { percent, note in
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("\(percent)%  \(note)")
+                                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                                .foregroundStyle(.tint)
+                            WindowRow(title: "Current session",
+                                      subtitle: "resets 22:30 · in 3h",
+                                      window: UsageWindow(utilization: Double(percent) / 100,
+                                                          resetsAt: reset, status: "allowed"))
+                        }
+                    }
+                }
+                .padding(20)
+                .frame(width: 308)
+                .environment(\.colorScheme, .dark)
+                .background(Color.black)
+
+                let renderer = ImageRenderer(content: sheet)
+                renderer.scale = 2
+                if let image = renderer.nsImage,
+                   let tiff = image.tiffRepresentation,
+                   let rep = NSBitmapImageRep(data: tiff),
+                   let png = rep.representation(using: .png, properties: [:]) {
+                    try? png.write(to: URL(fileURLWithPath: path))
+                    print("wrote \(path)")
+                } else { print("render failed") }
+            }
             exit(0)
         }
 

@@ -9,7 +9,13 @@ import UserNotifications
 /// would otherwise re-fire every poll.
 @MainActor
 final class Notifier {
-    static let thresholds = [50, 80, 95]
+    /// Matched to the colour bands in `Health.of`, deliberately.
+    ///
+    /// This was 50, 80, 95. Dropping 50 follows the same reasoning that moved the first
+    /// colour band there: half a window used is unremarkable, and a notification is a
+    /// more intrusive way to say nothing than a colour is. It also removes an
+    /// inconsistency — a 50% alert would now fire while nothing on screen changed.
+    static let thresholds = [80, 95]
 
     private struct WindowState {
         var resetsAt: Date?

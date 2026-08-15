@@ -33,8 +33,17 @@ struct Snapshot: Equatable {
 enum Health {
     case normal, warning, critical
 
+    /// Orange at 80, red at 95.
+    ///
+    /// These were 50 and 80, which meant a window turned orange the moment it was half
+    /// used. Half a window is unremarkable — nothing needs doing — and a colour that
+    /// fires when nothing needs doing is one you stop reading. 80 is the first point
+    /// where the end is genuinely in sight; 95 is "about to be blocked".
+    ///
+    /// 80 also aligns with the poll-interval floor, so the moment it turns orange is the
+    /// moment it starts refreshing every minute regardless of activity.
     static func of(_ percent: Int) -> Health {
-        percent >= 80 ? .critical : (percent >= 50 ? .warning : .normal)
+        percent >= 95 ? .critical : (percent >= 80 ? .warning : .normal)
     }
 
     var nsColor: NSColor {
