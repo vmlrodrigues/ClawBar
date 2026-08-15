@@ -172,11 +172,27 @@ struct PopoverView: View {
     }
 
     private var header: some View {
-        HStack {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
             Text("Claude usage").font(.system(size: 13, weight: .semibold))
             Spacer()
-            if model.isRefreshing {
-                ProgressView().controlSize(.small).scaleEffect(0.7)
+            // Always occupies its space, merely invisible when idle. Appearing and
+            // disappearing would shunt the timestamp sideways on every poll — a twitch
+            // once a minute, forever.
+            ProgressView()
+                .controlSize(.small)
+                .scaleEffect(0.6)
+                .opacity(model.isRefreshing ? 1 : 0)
+                .frame(width: 14)
+            // Freshness sits above the numbers it qualifies. At the foot of the window
+            // you read 20%, believe it, and only then discover it was twelve minutes
+            // old — which is precisely backwards when the reading is stale.
+            if let snapshot = model.snapshot {
+                Text("Updated \(shortDuration(now.timeIntervalSince(snapshot.fetchedAt))) ago")
+                    .font(.system(size: 10))
+                    .foregroundStyle(isStale ? .orange : .secondary)
+                    .help(isStale
+                          ? "Older than 5 minutes. Usage from claude.ai or the desktop app is invisible to ClawBar until the next refresh."
+                          : "")
             }
         }
     }
@@ -277,15 +293,13 @@ struct PopoverView: View {
 
     private var footer: some View {
         HStack(spacing: 8) {
-            // Turns amber once the reading is old enough to disagree visibly with
-            // Claude's own panel — the difference is lag, not error, and saying so
-            // beats leaving someone to wonder which number is lying.
-            Text(model.snapshot.map { "Updated \(shortDuration(now.timeIntervalSince($0.fetchedAt))) ago" } ?? "—")
+            // Low-value but zero-cost: worth having to hand when reporting a bug, or to
+            // confirm an update actually landed.
+            Text(bundleVersionString())
                 .font(.system(size: 10))
-                .foregroundStyle(isStale ? .orange : .secondary)
-                .help(isStale
-                      ? "Older than 5 minutes. Usage from claude.ai or the desktop app is invisible to ClawBar until the next refresh."
-                      : "")
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .help("Version and build number. The build number is what Sparkle compares when checking for updates.")
             Spacer()
             Button { Task { await model.refresh() } } label: {
                 Image(systemName: "arrow.clockwise")
