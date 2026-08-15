@@ -20,7 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        installEditMenu()
+        installMainMenu()
 
         statusItem = StatusItemController(model: model)
         statusItem.onClick = { [weak self] in self?.togglePopover() }
@@ -72,7 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// An LSUIElement app has no main menu, and without an Edit menu the standard
     /// editing commands never reach the responder chain — so Cmd+V would not work in the
     /// one field that exists to receive a pasted token.
-    private func installEditMenu() {
+    private func installMainMenu() {
         let main = NSMenu()
 
         let appItem = NSMenuItem()
@@ -95,7 +95,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         editItem.submenu = edit
 
+        // Cmd+W and Cmd+M exist only because this menu does. Without a Window menu there
+        // is no item carrying those key equivalents, so the shortcuts silently do
+        // nothing and every window has to be closed with the mouse. Same root cause as
+        // the missing Edit menu: an LSUIElement app is handed no main menu at all, and
+        // every standard shortcut you would take for granted has to be built.
+        let windowItem = NSMenuItem()
+        main.addItem(windowItem)
+        let windowMenu = NSMenu(title: "Window")
+        windowMenu.addItem(withTitle: "Close",
+                           action: #selector(NSWindow.performClose(_:)),
+                           keyEquivalent: "w")
+        windowMenu.addItem(withTitle: "Minimise",
+                           action: #selector(NSWindow.performMiniaturize(_:)),
+                           keyEquivalent: "m")
+        windowItem.submenu = windowMenu
+        // Lets AppKit manage the window list and keep the menu in step.
+        NSApp.windowsMenu = windowMenu
+
         NSApp.mainMenu = main
+    }
+
+    /// Dumps the main menu and its key equivalents. This is the second shortcut to have
+    /// silently gone missing — Cmd+V, then Cmd+W — and there is no other way to inspect
+    /// what an LSUIElement app actually installed.
+    private func dumpMainMenu() {
+        // stderr, not print: stdout is block-buffered when redirected, so the output is
+        // lost if the process is killed before it flushes.
+        func emit(_ line: String) {
+            FileHandle.standardError.write(Data((line + "\n").utf8))
+        }
+        guard let main = NSApp.mainMenu else { emit("no main menu"); return }
+        for item in main.items {
+            guard let submenu = item.submenu else { continue }
+            emit("\(submenu.title.isEmpty ? "App" : submenu.title):")
+            for entry in submenu.items where !entry.isSeparatorItem {
+                var key = ""
+                if entry.keyEquivalent.isEmpty {
+                    key = "—"
+                } else {
+                    let mods = entry.keyEquivalentModifierMask
+                    if mods.contains(.control) { key += "⌃" }
+                    if mods.contains(.option)  { key += "⌥" }
+                    if mods.contains(.shift)   { key += "⇧" }
+                    if mods.contains(.command) { key += "⌘" }
+                    key += entry.keyEquivalent.uppercased()
+                }
+                emit(String(format: "  %-5@ %@", key as NSString, entry.title as NSString))
+            }
+        }
     }
 
     // MARK: - Popover
@@ -334,6 +382,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         cycle.resume()
         debugCycleSource = cycle
+
+        // Dump the menu on SIGUSR1 too? No — keep it on launch, where it is visible
+        // in the log without needing a signal at all.
+        if ProcessInfo.processInfo.environment["CLAWBAR_DUMP_MENU"] == "1" { dumpMainMenu() }
 
         // SIGINFO opens Settings, so the window can be inspected without clicking.
         signal(SIGINFO, SIG_IGN)
