@@ -43,6 +43,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         scheduler = PollScheduler { [weak self] in await self?.model.refresh() }
         scheduler.worstPercent = { [weak self] in self?.model.worstPercent ?? 0 }
+        if ProcessInfo.processInfo.environment["CLAWBAR_DEBUG"] == "1" {
+            scheduler.onPoll = { interval in
+                let stamp = DateFormatter()
+                stamp.dateFormat = "HH:mm:ss"
+                FileHandle.standardError.write(Data(
+                    "ClawBar: poll at \(stamp.string(from: Date())) (interval \(Int(interval))s)\n".utf8))
+            }
+        }
 
         activityMonitor = ActivityMonitor { [weak self] in
             Task { @MainActor in self?.scheduler.reschedule() }

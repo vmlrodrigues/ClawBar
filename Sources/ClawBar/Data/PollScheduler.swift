@@ -5,6 +5,8 @@ import Foundation
 @MainActor
 final class PollScheduler {
     private var timer: DispatchSourceTimer?
+    /// The interval the pending timer was armed with, so an unchanged tier is a no-op.
+    private var scheduledInterval: TimeInterval??
     private var isSuspended = false
 
     private let poll: () async -> Void
@@ -34,9 +36,22 @@ final class PollScheduler {
     /// Re-arms a one-shot timer at the currently appropriate interval. Called after each
     /// poll and whenever the inputs change (activity, preference, utilization).
     func reschedule() {
+        let wanted = currentInterval
+
+        // Leave a pending timer alone when the interval has not changed.
+        //
+        // This is load-bearing. `reschedule()` is called on every filesystem event, and
+        // FSEvents delivers one roughly every five seconds while Claude Code is running.
+        // Re-arming unconditionally restarted the sixty-second countdown each time, so
+        // the timer never reached zero and a poll only happened once activity stopped
+        // for a full minute — the harder you worked, the less often it refreshed, which
+        // is precisely inverted from the intent.
+        if timer != nil, scheduledInterval == wanted { return }
+
         timer?.cancel()
         timer = nil
-        guard !isSuspended, let interval = currentInterval else { return }
+        scheduledInterval = wanted
+        guard !isSuspended, let interval = wanted else { return }
 
         let t = DispatchSource.makeTimerSource(queue: .main)
         // Generous leeway lets the OS coalesce this with other timers — the single
@@ -45,6 +60,10 @@ final class PollScheduler {
         t.setEventHandler { [weak self] in
             guard let self else { return }
             Task { @MainActor in
+                // Cleared before polling so the reschedule below re-arms rather than
+                // seeing a stale non-nil timer and returning early.
+                self.timer = nil
+                if let debug = self.onPoll { debug(interval) }
                 await self.poll()
                 self.reschedule()
             }
@@ -53,10 +72,14 @@ final class PollScheduler {
         timer = t
     }
 
+    /// Set under CLAWBAR_DEBUG to observe the real cadence; nil otherwise.
+    var onPoll: ((TimeInterval) -> Void)?
+
     func suspend() {
         isSuspended = true
         timer?.cancel()
         timer = nil
+        scheduledInterval = nil   // forces resume() to genuinely re-arm
     }
 
     func resume() {

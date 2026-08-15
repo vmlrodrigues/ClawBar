@@ -63,6 +63,32 @@ Timers use `DispatchSourceTimer` with generous leeway (`interval / 4`) so the OS
 wakeups with other timers. No `Timer.scheduledTimer` on the main runloop. Suspend on
 `NSWorkspace.willSleepNotification`, resume + immediate poll on `didWakeNotification`.
 
+### A pending timer must not be re-armed
+
+`reschedule()` runs on every filesystem event, and FSEvents delivers one roughly every
+five seconds while Claude Code is running. The first version cancelled and re-armed
+unconditionally, so each event restarted the sixty-second countdown and **the timer never
+reached zero** — a poll only happened once activity stopped for a full minute.
+
+The effect was exactly inverted from the intent: the harder you worked, the less often it
+refreshed, and hard work is when usage moves fastest. It looked like the app quietly
+getting lazier as sessions got busier.
+
+`reschedule()` now returns early when a timer is already pending at the wanted interval,
+re-arming only when the tier genuinely changes. The timer is cleared inside its own
+handler before polling, so the reschedule that follows a firing does re-arm rather than
+seeing a stale non-nil timer.
+
+Measured under continuous Claude Code activity, with `CLAWBAR_DEBUG=1` logging each poll:
+
+```
+poll at 21:39:28   poll at 21:40:43   poll at 21:41:48   poll at 21:43:03
+gaps: 75, 65, 75 seconds        (60s target, leeway 15s)
+```
+
+The lesson generalises: any timer re-armed from a high-frequency event source will starve.
+Treat "already scheduled correctly" as the common case.
+
 ---
 
 ## 3. Architecture
