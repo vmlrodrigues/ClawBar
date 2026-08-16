@@ -23,8 +23,6 @@ struct SettingsView: View {
                 ShortcutRecorder(keyCode: $prefs.hotKeyCode,
                                  modifiers: $prefs.hotKeyModifiers,
                                  isEnabled: prefs.hotKeyEnabled,
-                                 defaultKeyCode: DefaultHotKey.keyCode,
-                                 defaultModifiers: DefaultHotKey.modifiers,
                                  otherKeyCode: prefs.popoverHotKeyCode,
                                  otherModifiers: prefs.popoverHotKeyModifiers)
                 shortcutStatus(enabled: prefs.hotKeyEnabled,
@@ -37,8 +35,6 @@ struct SettingsView: View {
                 ShortcutRecorder(keyCode: $prefs.popoverHotKeyCode,
                                  modifiers: $prefs.popoverHotKeyModifiers,
                                  isEnabled: prefs.popoverHotKeyEnabled,
-                                 defaultKeyCode: DefaultHotKey.unsetKeyCode,
-                                 defaultModifiers: DefaultHotKey.unsetModifiers,
                                  otherKeyCode: prefs.hotKeyCode,
                                  otherModifiers: prefs.hotKeyModifiers)
                 shortcutStatus(enabled: prefs.popoverHotKeyEnabled,

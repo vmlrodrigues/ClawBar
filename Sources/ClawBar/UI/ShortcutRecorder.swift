@@ -10,8 +10,6 @@ struct ShortcutRecorder: View {
     @Binding var keyCode: Int
     @Binding var modifiers: Int
     let isEnabled: Bool
-    let defaultKeyCode: Int
-    let defaultModifiers: Int
     /// The app's *other* shortcut, so the same keys cannot be bound to both. Without this
     /// the second Carbon registration simply fails, and Settings reports that another app
     /// owns the combination — which is true of ClawBar, and thoroughly unhelpful.
@@ -46,15 +44,19 @@ struct ShortcutRecorder: View {
                     Text("⎋ to cancel")
                         .font(.system(size: 10)).foregroundStyle(.secondary)
                 } else {
-                    // "Reset" only means something when there is a default to return to.
-                    // An unbound shortcut resets to nothing, which is a clear, not a reset.
-                    Button(defaultModifiers == 0 ? "Clear" : "Reset") {
-                        keyCode = defaultKeyCode
-                        modifiers = defaultModifiers
+                    // Always Clear, never Reset. One row offering to restore a factory
+                    // combination while the other only offers to empty itself is two
+                    // different mental models in adjacent rows, and the difference exists
+                    // only because one shortcut happens to predate the other. Clear is also
+                    // the honest verb: what the button does is unbind, and re-binding is the
+                    // same gesture either way — click, press the keys you want.
+                    Button("Clear") {
+                        keyCode = DefaultHotKey.unsetKeyCode
+                        modifiers = DefaultHotKey.unsetModifiers
                         rejected = nil
                     }
                     .controlSize(.small)
-                    .disabled(!isEnabled || (defaultModifiers == 0 && modifiers == 0))
+                    .disabled(!isEnabled || modifiers == 0)
                 }
             }
 
