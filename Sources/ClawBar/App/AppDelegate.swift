@@ -72,12 +72,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .sink { [weak self] in
                 self?.statusItem.update()
                 self?.scheduler.reschedule()
-                self?.applyHotKey()
+                self?.applyHotKeys()
             }
             .store(in: &cancellables)
 
-        HotKeyCenter.shared.onTrigger = { Preferences.shared.cycleBarMode() }
-        applyHotKey()
+        HotKeyCenter.shared.setHandler(.cycleBarMode) { Preferences.shared.cycleBarMode() }
+        HotKeyCenter.shared.setHandler(.showPopover) { [weak self] in self?.togglePopoverFromHotKey() }
+        applyHotKeys()
 
         registerSleepWake()
         registerAppearanceChanges()
@@ -389,14 +390,57 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Re-registers the global hotkey from current preferences. Cheap enough to call on
     /// every preference change — unregister/register is a couple of Carbon calls.
-    private func applyHotKey() {
+    /// The bindings last handed to Carbon, so an unrelated preference change does not tear
+    /// down and rebuild working registrations.
+    ///
+    /// This runs off `objectWillChange`, which fires for *every* preference — including
+    /// `barMode`, which the cycle hotkey itself changes. Without the guard, pressing that
+    /// hotkey unregisters and re-registers the very hotkey being pressed, twice over now
+    /// that there are two. Cheap, but it is the same shape as the scheduler starvation in
+    /// §2: re-arming from a high-frequency event source, where "already correct" is the
+    /// common case.
+    /// Disabled actions are simply absent, which makes the whole comparison one `!=`.
+    private var appliedHotKeys: [HotKeyAction: HotKeyBinding] = [:]
+
+    private func applyHotKeys() {
         let prefs = Preferences.shared
-        guard prefs.hotKeyEnabled else {
-            HotKeyCenter.shared.unregister()
-            return
+        let centre = HotKeyCenter.shared
+
+        var wanted: [HotKeyAction: HotKeyBinding] = [:]
+        if prefs.hotKeyEnabled {
+            wanted[.cycleBarMode] = HotKeyBinding(keyCode: prefs.hotKeyCode,
+                                                  modifiers: prefs.hotKeyModifiers)
         }
-        HotKeyCenter.shared.register(keyCode: prefs.hotKeyCode,
-                                     carbonModifiers: prefs.hotKeyModifiers)
+        if prefs.popoverHotKeyEnabled {
+            wanted[.showPopover] = HotKeyBinding(keyCode: prefs.popoverHotKeyCode,
+                                                 modifiers: prefs.popoverHotKeyModifiers)
+        }
+
+        guard wanted != appliedHotKeys else { return }
+        appliedHotKeys = wanted
+
+        for action in HotKeyAction.allCases {
+            if let binding = wanted[action] {
+                centre.register(action,
+                                keyCode: binding.keyCode,
+                                carbonModifiers: binding.modifiers)
+            } else {
+                centre.unregister(action)
+            }
+        }
+    }
+
+    /// The hotkey path into the popover, which is not quite the click path.
+    ///
+    /// Clicking the status item activates ClawBar as a side effect; a global hotkey pressed
+    /// while another app is frontmost does not. An accessory app cannot raise its own UI
+    /// without activating (§9) — the popover would appear behind, or open without taking
+    /// key so the first click landed in whatever was underneath. `NSApp.activate()` first,
+    /// and only when opening: activating in order to close would steal focus to dismiss
+    /// something, which is worse than leaving it alone.
+    private func togglePopoverFromHotKey() {
+        if popover?.isShown != true { NSApp.activate() }
+        togglePopover()
     }
 
     /// `kill -USR1 <pid>` toggles the popover, so its geometry can be verified without

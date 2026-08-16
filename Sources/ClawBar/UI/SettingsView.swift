@@ -45,18 +45,41 @@ struct SettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            section("Keyboard shortcut") {
-                Toggle("Cycle session → weekly → both", isOn: $prefs.hotKeyEnabled)
-                ShortcutRecorder()
-                if prefs.hotKeyEnabled && !HotKeyCenter.shared.isRegistered {
+            section("Keyboard shortcuts") {
+                Toggle("Show the popover", isOn: $prefs.popoverHotKeyEnabled)
+                ShortcutRecorder(keyCode: $prefs.popoverHotKeyCode,
+                                 modifiers: $prefs.popoverHotKeyModifiers,
+                                 isEnabled: prefs.popoverHotKeyEnabled,
+                                 defaultKeyCode: DefaultHotKey.popoverKeyCode,
+                                 defaultModifiers: DefaultHotKey.popoverModifiers,
+                                 otherKeyCode: prefs.hotKeyCode,
+                                 otherModifiers: prefs.hotKeyModifiers)
+                if prefs.popoverHotKeyEnabled && !HotKeyCenter.shared.isRegistered(.showPopover) {
                     Label("Another app already owns that combination — pick a different one.",
                           systemImage: "exclamationmark.triangle.fill")
                         .font(.system(size: 10)).foregroundStyle(.orange)
                         .fixedSize(horizontal: false, vertical: true)
-                } else {
-                    Text("Works from any app. No Accessibility permission needed.")
-                        .font(.system(size: 10)).foregroundStyle(.secondary)
                 }
+
+                Divider().padding(.vertical, 2)
+
+                Toggle("Cycle session → weekly → both", isOn: $prefs.hotKeyEnabled)
+                ShortcutRecorder(keyCode: $prefs.hotKeyCode,
+                                 modifiers: $prefs.hotKeyModifiers,
+                                 isEnabled: prefs.hotKeyEnabled,
+                                 defaultKeyCode: DefaultHotKey.keyCode,
+                                 defaultModifiers: DefaultHotKey.modifiers,
+                                 otherKeyCode: prefs.popoverHotKeyCode,
+                                 otherModifiers: prefs.popoverHotKeyModifiers)
+                if prefs.hotKeyEnabled && !HotKeyCenter.shared.isRegistered(.cycleBarMode) {
+                    Label("Another app already owns that combination — pick a different one.",
+                          systemImage: "exclamationmark.triangle.fill")
+                        .font(.system(size: 10)).foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Text("Both work from any app. No Accessibility permission needed.")
+                    .font(.system(size: 10)).foregroundStyle(.secondary)
             }
 
             section("Alerts") {

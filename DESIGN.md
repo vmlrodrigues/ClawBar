@@ -202,7 +202,44 @@ independently.
 
 ### Switching without clicking
 
-A **global keyboard shortcut** cycles session → weekly → both, default **⌃⌥⌘U**.
+Two **global keyboard shortcuts**, both rebindable and independently switchable off:
+
+| Default | Action |
+|---|---|
+| ⌃⌥⌘U | Cycle session → weekly → both |
+| ⌃⌥⌘P | Show the popover — the same as clicking the status item |
+
+`HotKeyCenter` therefore holds a dictionary keyed by `HotKeyAction`, not a single
+`EventHotKeyRef`. The first version could not have had two: `register` began by calling
+`unregister`, so a second binding evicted the first. One Carbon event handler still serves
+both — it is installed against the application event target, so a second would only receive
+the same events twice — and it reads the `EventHotKeyID` back out of the event to decide
+which action to run. Skip that and every hotkey runs whichever was wired first.
+
+**The popover hotkey activates the app; clicking does not need to.** Clicking the status
+item activates ClawBar as a side effect. A hotkey pressed while another app is frontmost
+does not, and an accessory app cannot raise its own UI unactivated (§9) — so the popover
+opens behind, or opens without taking key and the first click lands in the app underneath.
+`NSApp.activate()` runs first, and only when opening: activating in order to *close*
+something would steal focus to dismiss a window, which is worse than leaving it be.
+
+**Two shortcuts cannot share a combination.** Carbon refuses the duplicate registration,
+which on its own surfaces in Settings as "another app already owns that combination" — true,
+in that the other app is ClawBar, and useless. `ShortcutRecorder` is given the other
+shortcut's binding and rejects the clash while recording, naming it.
+
+`applyHotKeys()` runs off `Preferences.objectWillChange`, which fires for *every* preference
+— including `barMode`, which the cycle hotkey itself sets. It compares against the last
+applied bindings and returns early when nothing changed, so pressing the hotkey no longer
+tears down and rebuilds the hotkey being pressed. Same shape as the scheduler starvation in
+§2: re-arming from a high-frequency event source, where "already correct" is the common case.
+
+`--test-hotkeys` asserts that both register at once, that unregistering one leaves the other,
+and that Carbon refuses a duplicate. It uses throwaway combinations rather than the real
+defaults, since an installed ClawBar already owns those and the test would report a failure
+that is really the feature working in the other process. What it cannot cover is the
+id-to-action dispatch, which needs a real keypress — synthesising one requires exactly the
+Accessibility permission this whole approach exists to avoid.
 
 Implemented with Carbon's `RegisterEventHotKey`, not
 `NSEvent.addGlobalMonitorForEvents`. That choice is deliberate: the NSEvent route needs
@@ -718,6 +755,7 @@ the app.
 | `--dates` | Every branch of the reset label; only one is reachable at a time |
 | `--test-notifications` | Drives the real `Notifier` through a scripted sequence and asserts |
 | `--test-escape` | Proves `EscapeClosableWindow` closes and a plain `NSWindow` does not |
+| `--test-hotkeys` | Proves two global shortcuts register at once and unregister independently |
 | `--render-menubar <png> [--dark]` | The status item in every mode and severity |
 | `--render-windows <png> [--dark]` | The two popover rows as a user sees them |
 | `--render-popover <png> [--dark]` | The whole popover, offscreen |

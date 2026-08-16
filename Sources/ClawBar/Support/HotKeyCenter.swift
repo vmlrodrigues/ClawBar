@@ -1,10 +1,30 @@
 import AppKit
 import Carbon.HIToolbox
 
-/// Default: ⌃⌥⌘U — "U" for usage, and three modifiers make an accidental clash unlikely.
+/// What a global shortcut is bound to.
+///
+/// The raw value is the Carbon hotkey id, and it arrives back in the event — which is how
+/// the handler knows which combination fired. One stable id per action, so a binding stored
+/// under an old build still means the same thing.
+enum HotKeyAction: UInt32, CaseIterable {
+    case cycleBarMode = 1
+    case showPopover = 2
+}
+
+/// A key combination, as stored and as handed to Carbon.
+struct HotKeyBinding: Equatable {
+    let keyCode: Int
+    let modifiers: Int
+}
+
+/// Defaults: ⌃⌥⌘U for usage, ⌃⌥⌘P for the popover. Three modifiers make an accidental
+/// clash unlikely, and both are mnemonic rather than merely free.
 enum DefaultHotKey {
     static let keyCode = Int(kVK_ANSI_U)
     static let modifiers = Int(controlKey | optionKey | cmdKey)
+
+    static let popoverKeyCode = Int(kVK_ANSI_P)
+    static let popoverModifiers = Int(controlKey | optionKey | cmdKey)
 }
 
 /// System-wide hotkey via Carbon's `RegisterEventHotKey`.
@@ -17,45 +37,49 @@ enum DefaultHotKey {
 final class HotKeyCenter {
     static let shared = HotKeyCenter()
 
-    private var hotKeyRef: EventHotKeyRef?
+    /// Keyed by `HotKeyAction.rawValue`, which is also the Carbon id. One Carbon event
+    /// handler serves every hotkey — it is installed against the application event target,
+    /// so a second would just receive the same events twice.
+    private var refs: [UInt32: EventHotKeyRef] = [:]
+    private var handlers: [UInt32: () -> Void] = [:]
     private var eventHandler: EventHandlerRef?
-
-    var onTrigger: (() -> Void)?
-
-    /// False when the last `register` failed — usually because another app already owns
-    /// the combination. Surfaced in Settings rather than failing silently.
-    private(set) var isRegistered = false
 
     private init() {}
 
+    func setHandler(_ action: HotKeyAction, _ block: @escaping () -> Void) {
+        handlers[action.rawValue] = block
+    }
+
+    /// False when the last `register` for this action failed — usually because another app
+    /// already owns the combination. Surfaced in Settings rather than failing silently.
+    func isRegistered(_ action: HotKeyAction) -> Bool { refs[action.rawValue] != nil }
+
     @discardableResult
-    func register(keyCode: Int, carbonModifiers: Int) -> Bool {
-        unregister()
+    func register(_ action: HotKeyAction, keyCode: Int, carbonModifiers: Int) -> Bool {
+        unregister(action)
         guard carbonModifiers != 0 else { return false }   // refuse a bare key
         installHandlerIfNeeded()
 
         var ref: EventHotKeyRef?
-        let id = EventHotKeyID(signature: OSType(0x434C_4257), id: 1)   // 'CLBW'
+        let id = EventHotKeyID(signature: OSType(0x434C_4257), id: action.rawValue)   // 'CLBW'
         let status = RegisterEventHotKey(UInt32(keyCode),
                                          UInt32(carbonModifiers),
                                          id,
                                          GetApplicationEventTarget(),
                                          0,
                                          &ref)
-        isRegistered = (status == noErr)
-        if isRegistered {
-            hotKeyRef = ref
-        } else {
-            FileHandle.standardError.write(Data(
-                "ClawBar: hotkey registration failed (OSStatus \(status)) for \(HotKeyFormatting.display(keyCode: keyCode, carbonModifiers: carbonModifiers))\n".utf8))
+        if status == noErr, let ref {
+            refs[action.rawValue] = ref
+            return true
         }
-        return isRegistered
+        FileHandle.standardError.write(Data(
+            "ClawBar: hotkey registration failed (OSStatus \(status)) for \(HotKeyFormatting.display(keyCode: keyCode, carbonModifiers: carbonModifiers))\n".utf8))
+        return false
     }
 
-    func unregister() {
-        if let hotKeyRef { UnregisterEventHotKey(hotKeyRef) }
-        hotKeyRef = nil
-        isRegistered = false
+    func unregister(_ action: HotKeyAction) {
+        if let ref = refs[action.rawValue] { UnregisterEventHotKey(ref) }
+        refs[action.rawValue] = nil
     }
 
     private func installHandlerIfNeeded() {
@@ -64,11 +88,23 @@ final class HotKeyCenter {
                                  eventKind: UInt32(kEventHotKeyPressed))
         InstallEventHandler(
             GetApplicationEventTarget(),
-            { _, _, userData -> OSStatus in
-                guard let userData else { return noErr }
+            { _, event, userData -> OSStatus in
+                guard let userData, let event else { return noErr }
+                // Which combination fired. The single handler serves every registration, so
+                // without reading the id back every hotkey would run the first action.
+                var hotKeyID = EventHotKeyID()
+                let status = GetEventParameter(event,
+                                               EventParamName(kEventParamDirectObject),
+                                               EventParamType(typeEventHotKeyID),
+                                               nil,
+                                               MemoryLayout<EventHotKeyID>.size,
+                                               nil,
+                                               &hotKeyID)
+                guard status == noErr else { return noErr }
                 let centre = Unmanaged<HotKeyCenter>.fromOpaque(userData).takeUnretainedValue()
+                let fired = hotKeyID.id
                 DispatchQueue.main.async {
-                    MainActor.assumeIsolated { centre.onTrigger?() }
+                    MainActor.assumeIsolated { centre.handlers[fired]?() }
                 }
                 return noErr
             },

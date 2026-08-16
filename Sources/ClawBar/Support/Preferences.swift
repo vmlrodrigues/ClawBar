@@ -86,6 +86,18 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(hotKeyModifiers, forKey: Keys.hotKeyModifiers) }
     }
 
+    // The popover shortcut. Stored separately rather than as an array so that adding a
+    // third later does not have to migrate anyone's existing bindings.
+    @Published var popoverHotKeyEnabled: Bool {
+        didSet { defaults.set(popoverHotKeyEnabled, forKey: Keys.popoverHotKeyEnabled) }
+    }
+    @Published var popoverHotKeyCode: Int {
+        didSet { defaults.set(popoverHotKeyCode, forKey: Keys.popoverHotKeyCode) }
+    }
+    @Published var popoverHotKeyModifiers: Int {
+        didSet { defaults.set(popoverHotKeyModifiers, forKey: Keys.popoverHotKeyModifiers) }
+    }
+
     /// Advance session → weekly → both → session. Driven by the global hotkey.
     func cycleBarMode() {
         let all = BarMode.allCases
@@ -102,6 +114,9 @@ final class Preferences: ObservableObject {
         static let hotKeyEnabled = "hotKeyEnabled"
         static let hotKeyCode = "hotKeyCode"
         static let hotKeyModifiers = "hotKeyModifiers"
+        static let popoverHotKeyEnabled = "popoverHotKeyEnabled"
+        static let popoverHotKeyCode = "popoverHotKeyCode"
+        static let popoverHotKeyModifiers = "popoverHotKeyModifiers"
     }
 
     private init() {
@@ -114,6 +129,9 @@ final class Preferences: ObservableObject {
             Keys.hotKeyEnabled: true,
             Keys.hotKeyCode: DefaultHotKey.keyCode,
             Keys.hotKeyModifiers: DefaultHotKey.modifiers,
+            Keys.popoverHotKeyEnabled: true,
+            Keys.popoverHotKeyCode: DefaultHotKey.popoverKeyCode,
+            Keys.popoverHotKeyModifiers: DefaultHotKey.popoverModifiers,
         ])
         barMode = BarMode(rawValue: defaults.string(forKey: Keys.barMode) ?? "") ?? .session
         barFormat = BarFormat(rawValue: defaults.string(forKey: Keys.barFormat) ?? "") ?? .percentTime
@@ -123,5 +141,8 @@ final class Preferences: ObservableObject {
         hotKeyEnabled = defaults.bool(forKey: Keys.hotKeyEnabled)
         hotKeyCode = defaults.integer(forKey: Keys.hotKeyCode)
         hotKeyModifiers = defaults.integer(forKey: Keys.hotKeyModifiers)
+        popoverHotKeyEnabled = defaults.bool(forKey: Keys.popoverHotKeyEnabled)
+        popoverHotKeyCode = defaults.integer(forKey: Keys.popoverHotKeyCode)
+        popoverHotKeyModifiers = defaults.integer(forKey: Keys.popoverHotKeyModifiers)
     }
 }

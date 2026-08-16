@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Carbon.HIToolbox
 import UserNotifications
 
 enum Retainer {
@@ -86,6 +87,44 @@ enum ClawBarMain {
                 let when = resetDescription(date, relativeTo: now)
                 let howLong = shortDuration(offset)
                 print("  \(label.padding(toLength: 15, withPad: " ", startingAt: 0))-> resets \(when) · in \(howLong)")
+            }
+            exit(0)
+        }
+
+        // `--test-hotkeys` proves two global shortcuts can be registered at once — the whole
+        // point of HotKeyCenter holding a dictionary rather than one ref. Otherwise this is
+        // only checkable by pressing the keys, and synthesising a keypress needs the
+        // Accessibility permission the Carbon route exists to avoid.
+        //
+        // Uses throwaway combinations, not the real defaults: an installed ClawBar already
+        // owns ⌃⌥⌘U and ⌃⌥⌘P, so testing with those would report a failure that is really
+        // the feature working in the other process.
+        if CommandLine.arguments.contains("--test-hotkeys") {
+            MainActor.assumeIsolated {
+                let centre = HotKeyCenter.shared
+                let one = (code: kVK_ANSI_1, mods: Int(controlKey | optionKey | shiftKey | cmdKey))
+                let two = (code: kVK_ANSI_2, mods: Int(controlKey | optionKey | shiftKey | cmdKey))
+
+                let a = centre.register(.cycleBarMode, keyCode: one.code, carbonModifiers: one.mods)
+                let b = centre.register(.showPopover, keyCode: two.code, carbonModifiers: two.mods)
+                print("  \(HotKeyFormatting.display(keyCode: one.code, carbonModifiers: one.mods)) -> cycleBarMode   registered: \(a)")
+                print("  \(HotKeyFormatting.display(keyCode: two.code, carbonModifiers: two.mods)) -> showPopover    registered: \(b)")
+                print(a && b && centre.isRegistered(.cycleBarMode) && centre.isRegistered(.showPopover)
+                      ? "  PASS — both live at once"
+                      : "  FAIL — registering the second evicted the first")
+
+                // Disabling one must leave the other alone.
+                centre.unregister(.cycleBarMode)
+                print(!centre.isRegistered(.cycleBarMode) && centre.isRegistered(.showPopover)
+                      ? "  PASS — unregistering one leaves the other"
+                      : "  FAIL — unregister hit the wrong hotkey")
+
+                // The duplicate the recorder must refuse. Carbon rejects it, but only with
+                // an OSStatus that Settings would otherwise attribute to another app.
+                let dup = centre.register(.cycleBarMode, keyCode: two.code, carbonModifiers: two.mods)
+                print(dup
+                      ? "  NOTE — Carbon allowed the same combination twice"
+                      : "  PASS — Carbon refuses a duplicate, so ShortcutRecorder rejects it first")
             }
             exit(0)
         }

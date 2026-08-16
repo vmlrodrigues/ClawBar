@@ -7,7 +7,16 @@ import Carbon.HIToolbox
 /// so configuring the shortcut needs no Accessibility permission — matching the Carbon
 /// registration that runs it.
 struct ShortcutRecorder: View {
-    @ObservedObject var prefs = Preferences.shared
+    @Binding var keyCode: Int
+    @Binding var modifiers: Int
+    let isEnabled: Bool
+    let defaultKeyCode: Int
+    let defaultModifiers: Int
+    /// The app's *other* shortcut, so the same keys cannot be bound to both. Without this
+    /// the second Carbon registration simply fails, and Settings reports that another app
+    /// owns the combination — which is true of ClawBar, and thoroughly unhelpful.
+    let otherKeyCode: Int
+    let otherModifiers: Int
 
     @State private var recording = false
     @State private var monitor: Any?
@@ -19,14 +28,14 @@ struct ShortcutRecorder: View {
                 Button { recording ? stop() : start() } label: {
                     Text(recording
                          ? "Press keys…"
-                         : HotKeyFormatting.display(keyCode: prefs.hotKeyCode,
-                                                    carbonModifiers: prefs.hotKeyModifiers))
+                         : HotKeyFormatting.display(keyCode: keyCode,
+                                                    carbonModifiers: modifiers))
                         .font(.system(size: 13, weight: .medium, design: .rounded))
                         .frame(minWidth: 84)
                         .padding(.vertical, 2)
                 }
                 .controlSize(.regular)
-                .disabled(!prefs.hotKeyEnabled)
+                .disabled(!isEnabled)
                 .help("Click, then press the combination you want")
 
                 if recording {
@@ -34,12 +43,12 @@ struct ShortcutRecorder: View {
                         .font(.system(size: 10)).foregroundStyle(.secondary)
                 } else {
                     Button("Reset") {
-                        prefs.hotKeyCode = DefaultHotKey.keyCode
-                        prefs.hotKeyModifiers = DefaultHotKey.modifiers
+                        keyCode = defaultKeyCode
+                        modifiers = defaultModifiers
                         rejected = nil
                     }
                     .controlSize(.small)
-                    .disabled(!prefs.hotKeyEnabled)
+                    .disabled(!isEnabled)
                 }
             }
 
@@ -66,19 +75,24 @@ struct ShortcutRecorder: View {
                 return nil
             }
 
-            let modifiers = HotKeyFormatting.carbonModifiers(from: event.modifierFlags)
+            let pressed = HotKeyFormatting.carbonModifiers(from: event.modifierFlags)
 
             // Require Control or Option. A ⌘-only global hotkey outranks the frontmost
             // app's own menu shortcut — binding ⌘U would break Underline everywhere —
             // and Shift alone is just typing.
-            let anchored = modifiers & (Int(controlKey) | Int(optionKey))
+            let anchored = pressed & (Int(controlKey) | Int(optionKey))
             guard anchored != 0 else {
                 rejected = "Include ⌃ Control or ⌥ Option — otherwise it would override the shortcut in whatever app you are using."
                 return nil
             }
 
-            prefs.hotKeyCode = Int(event.keyCode)
-            prefs.hotKeyModifiers = modifiers
+            guard !(Int(event.keyCode) == otherKeyCode && pressed == otherModifiers) else {
+                rejected = "ClawBar's other shortcut already uses \(HotKeyFormatting.display(keyCode: otherKeyCode, carbonModifiers: otherModifiers))."
+                return nil
+            }
+
+            keyCode = Int(event.keyCode)
+            modifiers = pressed
             stop()
             return nil   // swallow, so the keypress does not also reach the UI
         }
