@@ -1,15 +1,13 @@
 #!/usr/bin/env bash
 # Notarises dist/ClawBar.app, staples the ticket, and packages a signed DMG.
 #
-# Uses the same App Store Connect API key mechanism as budgetry-mac-app and Siloquy —
-# no Apple ID, no app-specific password, no `notarytool store-credentials` step.
+# Authenticates with an App Store Connect API key rather than an Apple ID and an
+# app-specific password. The key is a file, so there is no interactive
+# `notarytool store-credentials` step and nothing to repeat when setting up another
+# machine — which also means the credential never lands in a keychain profile that is
+# easy to forget about.
 #
-# SETUP: create .env in the project root with the same three notary vars your other
-# projects use. The quickest route is to copy the one you already have:
-#
-#     cp ~/Code/personal/budgetry-mac-app/.env ~/Code/personal/ClawBar/.env
-#
-# See .env.example for the variables read here.
+# SETUP: copy .env.example to .env and fill in the three variables it documents.
 #
 # Then:  ./Scripts/notarize.sh
 
@@ -24,7 +22,7 @@ DMG="$DIST/$APP_NAME.dmg"
 [ -d "$APP" ] || { echo "error: $APP not found — run Scripts/build.sh first" >&2; exit 1; }
 [ -f "$ROOT/.env" ] || {
     echo "error: no .env in $ROOT" >&2
-    echo "       cp ~/Code/personal/budgetry-mac-app/.env $ROOT/.env" >&2
+    echo "       cp $ROOT/.env.example $ROOT/.env   and fill it in" >&2
     exit 1
 }
 
@@ -66,9 +64,9 @@ STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 cp -R "$APP" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
-# hdiutil rather than create-dmg: it is built in, and create-dmg is not installed on
-# this machine. `brew install create-dmg` would buy the styled window layout Siloquy
-# uses (background image, icon positions) if that is wanted later.
+# hdiutil rather than create-dmg: it ships with macOS, so building a release needs nothing
+# installed beyond Xcode's command line tools. `brew install create-dmg` would buy a styled
+# window (background image, fixed icon positions) at the cost of that property.
 hdiutil create -volname "$APP_NAME" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
 
 echo "==> Signing the DMG"

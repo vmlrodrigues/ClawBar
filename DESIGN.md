@@ -96,8 +96,8 @@ Treat "already scheduled correctly" as the common case.
 ```
 Sources/ClawBar/
   App/
-    ClawBarMain.swift          @main; also the --projection probe
-    AppDelegate.swift          activation policy, Edit menu, windows, lifecycle
+    ClawBarMain.swift          @main; also every diagnostic flag (§10)
+    AppDelegate.swift          activation policy, main menu, windows, lifecycle
     AppModel.swift             display state and refresh
   StatusBar/
     StatusItemController.swift NSStatusItem ownership, change-gated updates
@@ -116,6 +116,7 @@ Sources/ClawBar/
     Preferences.swift          UserDefaults-backed settings
     HotKeyCenter.swift         Carbon global hotkey
     UpdaterController.swift    Sparkle
+    ClaudeCode.swift           locates the CLI; PATH is empty in a GUI process
   UI/
     PopoverView.swift          the dropdown
     SettingsView.swift
@@ -147,8 +148,18 @@ the ~80 lines of status-item plumbing.
 ### Default rendering
 
 ```
-🕐 7% · 28m
+⟨clock⟩ 7% · 28m
 ```
+
+Written `⟨clock⟩` rather than `🕐` deliberately. The glyph is an SF Symbol tinted to the
+current severity colour; the emoji is a fixed colour clock face showing half past two, and
+renders differently on every platform that reads this file. An earlier draft of both this
+document and the README used the emoji, which meant the one picture of the product was
+wrong everywhere it appeared.
+
+`--render-menubar` draws the real item — through `barSegments` and `attributedBar`, the
+same functions the live app calls — to [docs/menubar-dark.png](docs/menubar-dark.png) and
+its light counterpart. That is what the README shows. Regenerate them when this changes.
 
 - **Glyph carries window identity** — SF Symbol `clock` for the session window,
   `calendar` for the weekly one, rendered as an inline `NSTextAttachment` so both can
@@ -181,9 +192,9 @@ hunted for in a settings pane:
 
 | Mode | Bar |
 |---|---|
-| Session | `🕐 7% · 28m` |
-| Weekly | `📅 20% · 7h 26m` |
-| Both | `🕐 7%  📅 20%` |
+| Session | `⟨clock⟩ 7% · 28m` |
+| Weekly | `⟨calendar⟩ 20% · 6d 4h` |
+| Both | `⟨clock⟩ 7%  ⟨calendar⟩ 20%` |
 
 Both-mode drops the countdowns — carrying two would roughly double the width — and each
 glyph keeps its own severity colour, so whichever window is closer to its limit escalates
@@ -220,13 +231,21 @@ settings persist in `UserDefaults`.
 
 Per the verified error shapes:
 
-| State | Bar | Trigger |
-|---|---|---|
-| `ok` | `◔ 5h 47%` | 200 with headers |
-| `stale` | same, dimmed + tooltip "as of 12m ago" | network failure, last good retained |
-| `needsAuth` | `⚠︎` | 401 `authentication_error` |
-| `limited` | cached value + `!` suffix | 429; back off |
-| `noToken` | key glyph | first run |
+| State | Bar | Colour | Trigger |
+|---|---|---|---|
+| `ok` | `⟨clock⟩ 7% · 28m` | by severity | 200 with headers |
+| `stale` | same + ` *`, tooltip names the cause and age | by severity | network failure; last good retained |
+| `limited` | same + ` !`, tooltip "showing last known reading" | by severity | 429; back off |
+| `loading` | `…` | normal | first poll in flight |
+| `noToken` | `Set up` | warning | first run |
+| `needsAuth` | `auth` | critical | 401 `authentication_error` |
+| `failed` | `—`, tooltip carries the reason | warning | anything else |
+
+The degraded states are **words, not symbols**. `⚠︎` and a key glyph were tried first and
+both failed the same test: a lone symbol in a menu bar says something is wrong without
+saying what, and there is no room for a legend. "Set up" and "auth" are each short enough
+to fit and specific enough to act on, and both status items are clickable straight through
+to the thing that fixes them.
 
 A missing header renders `—`, **never** `0`. Zero is a real and reassuring value; absence
 is not.
@@ -251,7 +270,7 @@ a one-line change.
 
 ## 5. Popover content
 
-One `WindowGaugeRow` per window: bar, percentage, status, reset.
+One `WindowRow` per window: bar, percentage, status, reset.
 
 - **5h** — "Current session", "resets 22:00 · in 2h 18m".
 - **7d** — "All models", same treatment. The countdown is safe: comparison against the
@@ -367,16 +386,28 @@ changed**:
 
 Rotates at 5 MB. Contains no token and no message content.
 
-Its first job is to settle the open question from verification: the observed `7d-reset`
-was 9 hours out, not 7 days. Either it is a fixed 7-day window anchored to first use
-(started Jul 29 19:00 UTC, resets Aug 5 19:00 UTC — consistent with both timestamps
-landing on clean hour boundaries), or it is a rolling window whose timestamp marks when
-the oldest usage ages out, in which case utilization steps *down* rather than zeroing and
-a countdown label would be a lie. A few days of log data distinguishes these. Until then
-the 7d row shows an absolute time and no countdown.
+It was added to answer two questions that could not be settled by inspection. Both are now
+settled, and the answers are recorded here because the log is the only evidence for them.
 
-Its second job is to confirm or refute the assumption in §1 — whether ClawBar's own polls
-anchor a 5h window. Watch whether `r5` advances during a period of pure idle heartbeat.
+**The weekly window is fixed, not rolling.** The first observation had `7d-reset` nine
+hours out rather than seven days, which is consistent with either a fixed window anchored
+to first use or a rolling one whose timestamp marks when the oldest usage ages out. The
+distinction mattered: a rolling window steps *down* gradually, and a countdown label
+against it would be a lie. Logged resets land a clean `+7.000 days` apart and utilisation
+drops straight to zero rather than decaying, so it is fixed. The 7d row shows a countdown
+on that basis (VERIFICATION.md).
+
+**ClawBar's own polls do anchor a 5-hour session window.** `r5` advances during periods of
+pure idle heartbeat, so the assumption in §1 is correct and the activity gating is load-
+bearing rather than merely a battery optimisation. The anchoring costs no measurable
+utilisation — the window starts, but reads 0% — which is why the idle heartbeat is offered
+at all rather than removed. Users who care are given the Off switch and the reason.
+
+A third use emerged that was not planned: it is the only source of history long enough to
+backtest against, and every calibrated number in §10 — the estimator choice, the 1.5
+points/day error growth, the 60% session threshold — was fitted to it. Turning it off
+costs those, which is why projection history lives in its own file (§10) and does not
+depend on this one.
 
 ---
 
@@ -446,8 +477,14 @@ before calling it done.
 ## 9. Two gotchas worth writing down
 
 **Dock icon.** `LSUIElement = YES` in Info.plist, plus
-`NSApp.setActivationPolicy(.accessory)` in `applicationDidFinishLaunching`. Settings and
-onboarding windows need `NSApp.activate(ignoringOtherApps: true)` to come forward.
+`NSApp.setActivationPolicy(.accessory)` in `applicationDidFinishLaunching`.
+
+**An accessory app must activate itself to show a window — with `NSApp.activate()`, not
+`activate(ignoringOtherApps:)`.** The latter is deprecated on macOS 14 and does nothing.
+Since an accessory app has no dock icon for the system to activate it through, a window
+ordered front without activation is created, sized and laid out entirely correctly, and
+never appears. It looks exactly like a rendering bug, and the onboarding window — the
+first thing a new user must see — was invisible for precisely this reason.
 
 **Cmd+V will not work in the token field.** An `LSUIElement` app has no main menu, and
 without an Edit menu the standard editing commands never reach the responder chain — so
@@ -618,16 +655,34 @@ plain ghost fill, a dashed outline, and two variants putting "20% → 61%" in th
 
 ### Diagnostics — run them from the signed bundle
 
-```
-dist/ClawBar.app/Contents/MacOS/ClawBar --projection
-dist/ClawBar.app/Contents/MacOS/ClawBar --render-popover /tmp/p.png [--dark]
-dist/ClawBar.app/Contents/MacOS/ClawBar --render-states /tmp/s.png
-dist/ClawBar.app/Contents/MacOS/ClawBar --test-notifications
-```
+All of them run from `dist/ClawBar.app/Contents/MacOS/ClawBar` and exit without launching
+the app.
+
+| Flag | What it does |
+|---|---|
+| `--version` | The exact string Settings shows, version and build |
+| `--projection` | What the popover would show, via the real code path |
+| `--dates` | Every branch of the reset label; only one is reachable at a time |
+| `--test-notifications` | Drives the real `Notifier` through a scripted sequence and asserts |
+| `--test-escape` | Proves `EscapeClosableWindow` closes and a plain `NSWindow` does not |
+| `--render-menubar <png> [--dark]` | The status item in every mode and severity |
+| `--render-windows <png> [--dark]` | The two popover rows as a user sees them |
+| `--render-popover <png> [--dark]` | The whole popover, offscreen |
+| `--render-states <png>` | The projection across its range, including past 100% |
+| `--render-bands <png>` | The health bands at their boundaries |
+| `--render-onboarding <png>` | First run; pair with `CLAWBAR_FAKE_NO_CLAUDE=1` |
+
+`CLAWBAR_DEBUG=1` logs each poll with its interval — the only way the scheduler starvation
+in §2 was visible. `CLAWBAR_DUMP_MENU=1` dumps the installed main menu.
+
+The `--render-*` flags exist because the alternative is Screen Recording permission, which
+a build machine does not have and a reviewer should not need to grant. They also reach
+states real data will not produce on demand: usage cannot be driven to 96% to check a
+colour.
 
 `--test-notifications` drives the real `Notifier` through a scripted sequence of
 utilisations and asserts what fired at each step. Threshold alerts are otherwise
-effectively untestable — you cannot burn to 50% of a weekly window on demand, and waiting
+effectively untestable — you cannot burn to 80% of a weekly window on demand, and waiting
 for it exercises one path, once. The script covers first crossing, the latch, hysteresis
 release, re-firing after release, the higher thresholds, and the window change that clears
 the latches. It also prints live authorisation status, since a denied app fails silently.
@@ -646,8 +701,19 @@ Keychain therefore identifies it by exact code hash, so every rebuild is an unre
 new client asking for the token — and "Always Allow" cannot stick, because it was granted
 to a hash that no longer exists. The result is an endless stream of Keychain prompts.
 
-`dist/ClawBar.app` carries a designated requirement identical to the installed copy's, so
-it inherits the trust already granted and prompts for nothing.
+A **signed** `dist/ClawBar.app` carries a designated requirement identical to the installed
+copy's, so it inherits the trust already granted and prompts for nothing.
+
+The word *signed* is load-bearing. `SIGN=0 ./Scripts/build.sh` ad-hoc signs the bundle
+too — `codesign -dv` reports `Signature=adhoc` and `TeamIdentifier=not set` — which puts it
+in exactly the same position as `.build/release/ClawBar` despite living at the path this
+section recommends. Any flag that reaches the Keychain (`--projection` and
+`--render-popover` both do, via `AppModel`) will then block on a prompt, and under a shell
+redirect that looks like a hang rather than a question. Check with:
+
+```bash
+codesign -dv dist/ClawBar.app 2>&1 | grep -E 'Signature|TeamIdentifier'
+```
 
 ## 11. Sparkle
 
@@ -674,9 +740,10 @@ is no dock icon to bounce, so a scheduled reminder should not be assumed seen.
 
 ### Signing key
 
-A ClawBar-specific EdDSA key, generated with `generate_keys --account ClawBar`. Budgetry's
-key is a separate item under the same Keychain service and is untouched — one key per app,
-so a compromise of one does not authorise updates for the other.
+A ClawBar-specific EdDSA key, generated with `generate_keys --account ClawBar`. Sparkle
+stores keys as separate accounts under one Keychain service, so an existing key belonging
+to another app is untouched — one key per app, so a compromise of one does not authorise
+updates for the other.
 
 **The private key exists only in the login Keychain.** Lose it and no already-installed
 copy can ever be updated again, because the public key is baked into every shipped
@@ -715,16 +782,25 @@ defaults write com.victorrodrigues.ClawBar SULastCheckTime -date "2026-01-01 00:
 
 ### Publishing
 
-`Scripts/appcast.sh` stages the notarised DMG into a checkout of a **public** releases
-repo and runs Sparkle's own `generate_appcast`. It refuses to publish a DMG without a
-stapled notarisation ticket.
+`appcast.xml` is committed to this repository and served from `raw.githubusercontent.com`.
+The DMGs are **GitHub release assets**, not committed files — a binary per release would
+grow the git history permanently, and history is the one thing that cannot be pruned later
+without rewriting every clone.
 
-DMGs are committed to that repo rather than attached as GitHub release assets, because a
-release asset's URL contains its tag — every version would need a different
-`--download-url-prefix`, and `generate_appcast` takes one for the whole folder. Committing
-keeps the prefix constant and lets the stock tool do the whole job. Cost is repo size,
-roughly 5 MB per release, so prune old DMGs periodically. Budgetry solves the same problem
-with a custom `appcast-add.py`; that is the alternative if the repo grows awkward.
+That choice costs the stock tooling. Sparkle's `generate_appcast` takes one
+`--download-url-prefix` for a whole folder, but a release asset's URL embeds its tag, so
+every version needs a different prefix. `Scripts/appcast-add.py` replaces it: it signs with
+`sign_update` and adds or replaces exactly one `<item>`, leaving the rest of the feed alone.
+
+**Each release attaches the DMG twice.** Once version-stamped (`ClawBar-0.5.2.dmg`), which
+is what the appcast enclosure points at — Sparkle needs a distinct URL per version. Once as
+plain `ClawBar.dmg`, because the README's download button uses
+`releases/latest/download/ClawBar.dmg`, which resolves only against an asset of exactly that
+name. Publishing only the stamped one leaves the button 404ing, which is invisible to anyone
+who tests updates but not the front page. The duplication is a few megabytes per release.
+
+`Scripts/appcast.sh` refuses to run if a tag for the current `VERSION` already exists, and
+refuses to publish a DMG without a stapled notarisation ticket.
 
 ## 12. Versioning
 
@@ -750,11 +826,20 @@ since that would overwrite a live appcast entry and point it at different bits.
 
 ## 13. Build order
 
-1. `AnthropicUsageClient` + `HeaderParser` + `UsageSnapshot`, with a fixture-backed test
-   using the captured headers.
-2. `TokenStore` + onboarding — including the Edit menu, or you cannot paste the token.
-3. `StatusItemController` + `GaugeRenderer` against a stubbed snapshot.
+Written before any code existed, and kept because the ordering rationale outlived the plan.
+Two of its names never materialised: header parsing folded into `AnthropicUsageClient`
+rather than becoming a `HeaderParser`, and `GaugeRenderer` became `BarRendering`.
+
+1. `AnthropicUsageClient` + `UsageSnapshot`, against the captured header fixtures.
+2. `TokenStore` + onboarding — including the main menu, or the token cannot be pasted into
+   the one field that exists to receive it (§9).
+3. `StatusItemController` + `BarRendering`, against a stubbed snapshot.
 4. `PollScheduler` + `ActivityMonitor`.
-5. `UsageLog` — early, so the 7d question starts collecting data while the UI is built.
+5. `UsageLog` early, so history accumulates while the UI is still being built.
 6. Popover UI, then settings, then notifications.
+
+Step 5 mattered far more than it looked. Every calibrated number in §10 — the estimator
+choice, the error growth, the session threshold — was fitted to data the log had already
+been quietly collecting for weeks by the time the projection was designed. Had it been
+built last, the projection would have shipped on guesswork or waited a month.
 7. `SMAppService.mainApp.register()` for launch at login.

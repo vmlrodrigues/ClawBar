@@ -203,6 +203,154 @@ enum ClawBarMain {
             exit(0)
         }
 
+        // `--render-menubar` draws the status item for the README, through the *real*
+        // rendering path — `barSegments` + `attributedBar`, the same two functions the
+        // live app calls. The README used to depict the bar as `🕐 7% · 28m`, and an
+        // emoji clock face is not what an SF Symbol looks like: wrong colour, wrong
+        // weight, wrong shape, and it renders differently on every platform reading the
+        // page. Drawing it from the app's own code is the only version that cannot drift.
+        if let i = CommandLine.arguments.firstIndex(of: "--render-menubar") {
+            let path = i + 1 < CommandLine.arguments.count
+                ? CommandLine.arguments[i + 1] : "/tmp/clawbar-menubar.png"
+            let dark = CommandLine.arguments.contains("--dark")
+            MainActor.assumeIsolated {
+                let now = Date()
+                func window(_ percent: Int, _ resetIn: TimeInterval) -> UsageWindow {
+                    UsageWindow(utilization: Double(percent) / 100,
+                                resetsAt: now.addingTimeInterval(resetIn), status: "allowed")
+                }
+                func shot(session: Int, weekly: Int) -> Snapshot {
+                    Snapshot(session: window(session, 28 * 60),
+                             weekly: window(weekly, 6 * 86_400 + 4 * 3_600),
+                             overage: nil, representative: "", fallbackPercentage: nil,
+                             fetchedAt: now)
+                }
+
+                let rows: [(Snapshot, BarMode, BarFormat, String)] = [
+                    (shot(session:  7, weekly: 20), .session, .percentTime, "Session — the default"),
+                    (shot(session:  7, weekly: 20), .weekly,  .percentTime, "Weekly"),
+                    (shot(session:  7, weekly: 20), .both,    .percent,     "Both windows at once"),
+                    (shot(session: 82, weekly: 20), .session, .percentTime, "80% — warning"),
+                    (shot(session: 96, weekly: 20), .session, .percentTime, "95% — critical"),
+                ]
+
+                let captionFont = NSFont.systemFont(ofSize: 11.5)
+                let pad: CGFloat = 20, rowH: CGFloat = 32, pillH: CGFloat = 22, gap: CGFloat = 16
+                var png: Data?
+
+                // labelColor resolves at draw time, and SymbolCache bakes it into the glyph
+                // image — so measuring and drawing must both happen under the appearance
+                // being rendered, or the light sheet gets dark-mode glyphs.
+                let appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+                appearance?.performAsCurrentDrawingAppearance {
+                    let bars = rows.map {
+                        attributedBar(barSegments($0.0, mode: $0.1, format: $0.2, now: now), suffix: "")
+                    }
+                    let pillW = (bars.map { $0.size().width }.max() ?? 80) + 26
+                    let capW = rows.map {
+                        ($0.3 as NSString).size(withAttributes: [.font: captionFont]).width
+                    }.max() ?? 120
+                    let width = (pad * 2 + pillW + gap + capW).rounded(.up)
+                    let height = pad * 2 + CGFloat(rows.count) * rowH
+
+                    // 3×, not the usual 2×: this is displayed in a README at roughly twice
+                    // its logical size, so 2× would land under retina density and look soft.
+                    let scale: CGFloat = 3
+                    guard let rep = NSBitmapImageRep(
+                        bitmapDataPlanes: nil,
+                        pixelsWide: Int(width * scale), pixelsHigh: Int(height * scale),
+                        bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                        colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
+                    ) else { return }
+                    rep.size = NSSize(width: width, height: height)
+
+                    NSGraphicsContext.saveGraphicsState()
+                    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+
+                    (dark ? NSColor(white: 0.11, alpha: 1) : NSColor.white).setFill()
+                    NSRect(x: 0, y: 0, width: width, height: height).fill()
+
+                    for (index, bar) in bars.enumerated() {
+                        let top = height - pad - CGFloat(index) * rowH
+                        let pill = NSRect(x: pad, y: top - (rowH + pillH) / 2, width: pillW, height: pillH)
+                        // Approximates the menu bar's own plate, so the item is seen in
+                        // something like its real surroundings rather than floating.
+                        (dark ? NSColor(white: 0.22, alpha: 1) : NSColor(white: 0.90, alpha: 1)).setFill()
+                        NSBezierPath(roundedRect: pill, xRadius: 5, yRadius: 5).fill()
+
+                        let size = bar.size()
+                        bar.draw(at: NSPoint(x: pill.minX + 13, y: pill.midY - size.height / 2))
+
+                        let caption = rows[index].3 as NSString
+                        let cs = caption.size(withAttributes: [.font: captionFont])
+                        caption.draw(at: NSPoint(x: pill.maxX + gap, y: pill.midY - cs.height / 2),
+                                     withAttributes: [.font: captionFont,
+                                                      .foregroundColor: NSColor.secondaryLabelColor])
+                    }
+
+                    NSGraphicsContext.restoreGraphicsState()
+                    png = rep.representation(using: .png, properties: [:])
+                }
+
+                if let png {
+                    try? png.write(to: URL(fileURLWithPath: path))
+                    print("wrote \(path)")
+                } else { print("render failed") }
+            }
+            exit(0)
+        }
+
+        // `--render-windows` draws the two popover rows as a user actually sees them, for
+        // the README. Distinct from `--render-states`, which is a diagnostic sheet covering
+        // every projection case at once and is far too much for a front page.
+        //
+        // It stops short of the whole popover because `--render-popover` cannot draw the
+        // segmented controls (ImageRenderer will not render AppKit-backed Pickers — they
+        // come out as yellow blocks). The rows are the part worth showing anyway.
+        if let i = CommandLine.arguments.firstIndex(of: "--render-windows") {
+            let path = i + 1 < CommandLine.arguments.count
+                ? CommandLine.arguments[i + 1] : "/tmp/clawbar-windows.png"
+            let dark = CommandLine.arguments.contains("--dark")
+            MainActor.assumeIsolated {
+                let now = Date()
+                // Deliberately the ordinary case, not a dramatic one: a quiet session
+                // window with no projection (it is suppressed below 60%, see §10) and a
+                // weekly window heading somewhere worth knowing about.
+                let sheet = VStack(alignment: .leading, spacing: 18) {
+                    WindowRow(title: "Current session",
+                              subtitle: "resets \(clockTime(now.addingTimeInterval(28 * 60))) · in 28m",
+                              window: UsageWindow(utilization: 0.07,
+                                                  resetsAt: now.addingTimeInterval(28 * 60),
+                                                  status: "allowed"))
+                    WindowRow(title: "All models",
+                              subtitle: "resets \(clockTime(now.addingTimeInterval(4.7 * 86_400))) · in 4d 16h",
+                              window: UsageWindow(utilization: 0.45,
+                                                  resetsAt: now.addingTimeInterval(4.7 * 86_400),
+                                                  status: "allowed"),
+                              projection: Projection(ratePerDay: 9.6,
+                                                     projectedPercent: 90,
+                                                     daysRemaining: 4.7,
+                                                     outlook: .mayRunOut,
+                                                     limitReachedAt: nil))
+                }
+                .padding(20)
+                .frame(width: 308)
+                .environment(\.colorScheme, dark ? .dark : .light)
+                .background(dark ? Color.black : Color.white)
+
+                let renderer = ImageRenderer(content: sheet)
+                renderer.scale = 3
+                if let image = renderer.nsImage,
+                   let tiff = image.tiffRepresentation,
+                   let rep = NSBitmapImageRep(data: tiff),
+                   let png = rep.representation(using: .png, properties: [:]) {
+                    try? png.write(to: URL(fileURLWithPath: path))
+                    print("wrote \(path)")
+                } else { print("render failed") }
+            }
+            exit(0)
+        }
+
         // `--render-states` draws the projection across its range, including the cases
         // real data will not produce on demand: near the limit, and over it.
         if let i = CommandLine.arguments.firstIndex(of: "--render-states") {

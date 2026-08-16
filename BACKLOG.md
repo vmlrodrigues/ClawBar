@@ -44,6 +44,14 @@ command. Installing would require assuming a package manager that a Claude Deskt
 user may not have, and turning a usage meter into a software installer is a trust
 escalation it does not earn.
 
+**Apple Silicon only — no Intel build.** `Scripts/build.sh` deliberately omits
+`--arch arm64 --arch x86_64`. Universal would cost 0.4 MB and about two seconds of build
+time, so the reason is not the price: there is no Intel Mac to test on, and shipping an
+architecture nobody exercises means fielding bugs that cannot be reproduced. The README
+badge says Apple Silicon so nobody downloads a binary that will not launch. Reversible in
+one line if that changes — but it is a decision, not an oversight, and it was once
+"fixed" by someone who assumed otherwise.
+
 ---
 
 ## Nice to have
@@ -53,8 +61,17 @@ changing the undocumented headers, and the most useful thing a reporter can prov
 raw header dump plus `--projection` output. Without a template that becomes three rounds
 of follow-up questions.
 
-**A styled DMG.** Currently plain `hdiutil`. Siloquy uses `create-dmg` for background art
-and icon positions; that needs a Homebrew formula installed.
+**A styled DMG.** Currently plain `hdiutil` — a window with the app and an Applications
+alias, no background art or fixed icon positions. `create-dmg` would do it, at the cost of
+a Homebrew formula that anyone building from source would then also need.
+
+**A real screenshot for the README.** Both README images are rendered offscreen from the
+app's own code — `--render-menubar` for the status item, `--render-windows` for the popover
+rows — which keeps them honest and regenerable, but neither is a photograph of the app on a
+desktop. The two things still unshown are the popover's segmented controls and its footer,
+because `ImageRenderer` will not draw AppKit-backed Pickers: `--render-popover` emits yellow
+placeholder blocks where they should be. That is the renderer, not the app. A genuine
+capture needs Screen Recording permission, which no build machine has.
 
 **Verify the first run on a machine without Claude Code.** The Desktop-only onboarding was
 checked by rendering it offscreen with `CLAWBAR_FAKE_NO_CLAUDE=1`, not by living through

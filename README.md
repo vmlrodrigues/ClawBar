@@ -12,9 +12,13 @@ Your Claude subscription usage in the menu bar — the **5-hour session window**
 **weekly limit**, with reset countdowns, a projection of where the week is heading, and
 warnings before you run out.
 
-```
-🕐 7% · 28m
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/menubar-dark.png">
+  <img src="docs/menubar-light.png" width="440"
+       alt="ClawBar's menu bar item in each mode: a clock glyph with 7% · 28m for the session
+            window, a calendar glyph with 20% · 6d 4h for the weekly one, both together, and
+            the same session item in orange at 82% and red at 96%.">
+</picture>
 
 No dock icon. Around 15 MB and 0% CPU between checks. Signed with a Developer ID and
 notarised by Apple, so Gatekeeper stays quiet.
@@ -23,14 +27,23 @@ notarised by Apple, so Gatekeeper stays quiet.
 
 ## What it shows
 
-**In the menu bar**, always visible: a glyph for which window you are looking at — 🕐
-session, 📅 weekly — the percentage used, and how long until it resets. A global shortcut
-(⌃⌥⌘U by default, rebindable) cycles session → weekly → both without touching the mouse.
+**In the menu bar**, always visible: a glyph for which window you are looking at — a clock
+for the session, a calendar for the week — the percentage used, and how long until it
+resets. A global shortcut (⌃⌥⌘U by default, rebindable) cycles session → weekly → both
+without touching the mouse.
 
 The figure turns **orange at 80%** and **red at 95%**. Nothing below that, deliberately:
 a colour that fires when nothing needs doing is a colour you stop reading.
 
 **Click it** for both windows in full:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/windows-dark.png">
+  <img src="docs/windows-light.png" width="460"
+       alt="The popover's two rows. Current session at 7%, resetting in 28 minutes. All
+            models at 45%, with a paler orange extension of the bar reaching 90% and a
+            caret labelled 'projected 90%' beneath it, resetting in 4 days 16 hours.">
+</picture>
 
 - Percentage used, a progress bar, and when the window resets — named by day, so
   `resets Thu 05:00 · in 4d 8h` rather than an ambiguous bare time.
