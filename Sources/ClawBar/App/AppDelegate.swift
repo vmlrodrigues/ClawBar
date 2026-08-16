@@ -46,6 +46,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if ProcessInfo.processInfo.environment["CLAWBAR_DEBUG"] == "1" {
             scheduler.onPoll = { interval in
                 let stamp = DateFormatter()
+                // Hardcoded 24-hour on purpose, unlike everything user-facing. This goes to
+                // stderr for reading poll intervals off a log; am/pm would make gaps across
+                // noon harder to eyeball, and a locale-dependent log is worse to compare
+                // between machines. Not the bug that `clockTime` had.
                 stamp.dateFormat = "HH:mm:ss"
                 FileHandle.standardError.write(Data(
                     "ClawBar: poll at \(stamp.string(from: Date())) (interval \(Int(interval))s)\n".utf8))

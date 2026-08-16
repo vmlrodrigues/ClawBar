@@ -115,12 +115,28 @@ func resetDescription(_ date: Date, relativeTo now: Date = Date()) -> String {
                                        from: calendar.startOfDay(for: now),
                                        to: calendar.startOfDay(for: date)).day ?? 0
     let formatter = DateFormatter()
-    formatter.dateFormat = days < 7 ? "EEE" : "EEE d MMM"
+    // From a template, never a literal pattern. `EEE d MMM` hardcodes day-before-month,
+    // which is simply wrong in the United States and anywhere else that leads with the
+    // month, and it cannot produce the shapes some locales need at all — ja_JP wants
+    // 8月16日(日), which is not a reordering of these fields but a different construction.
+    // A template names the fields wanted and lets the locale decide the rest.
+    formatter.dateFormat = DateFormatter.dateFormat(
+        fromTemplate: days < 7 ? "EEE" : "EEEdMMM", options: 0, locale: .current)
     return "\(formatter.string(from: date)) \(time)"
 }
 
+/// The wall-clock time, in whatever convention the user actually reads.
+///
+/// This was `HH:mm`, which is 24-hour for everybody. That is wrong for most of the world's
+/// locales — and specifically wrong for the one this was developed in, since en_AU defaults
+/// to am/pm. It also ignored the explicit 12/24-hour switch in System Settings, so a user
+/// who had set a preference was overruled by a format string.
+///
+/// `timeStyle = .short` follows both: the locale's own convention, and the override when
+/// there is one. Nothing else here needs to know which was in play.
 func clockTime(_ date: Date) -> String {
     let f = DateFormatter()
-    f.dateFormat = "HH:mm"
+    f.timeStyle = .short
+    f.dateStyle = .none
     return f.string(from: date)
 }

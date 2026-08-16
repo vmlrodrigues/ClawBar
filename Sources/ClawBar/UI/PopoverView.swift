@@ -138,7 +138,10 @@ struct WindowRow: View {
                             p.ratePerDay)]
         if let at = p.limitReachedAt {
             let f = DateFormatter()
-            f.dateFormat = "EEE d MMM 'at' HH:mm"
+            // The template supplies the connector too — "at" in English, "à" in French, none
+            // in Japanese. The literal `'at'` this replaces stayed English in every locale.
+            f.dateFormat = DateFormatter.dateFormat(
+                fromTemplate: "EEEdMMMjm", options: 0, locale: .current)
             lines.append("At this rate the limit arrives \(f.string(from: at)).")
         }
         switch p.outlook {
