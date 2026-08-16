@@ -48,16 +48,33 @@ for hours. The seed now takes the newest mtime across all of them.
 |---|---|
 | Activity < 5 min ago | 60s |
 | Activity < 30 min ago | 5 min |
-| Idle | Heartbeat only (default 15 min, configurable, can be Off) |
+| Idle | Heartbeat every 5 min (not shown in Settings; see below) |
 | Popover opened | Immediate, always |
 | Wake from sleep | Immediate |
 | Manual refresh | Immediate |
 | Any window ≥ 80% | Floor of 60s regardless of activity |
 
 The idle heartbeat exists because `~/.claude` only reflects Claude **Code**. Usage from
-claude.ai or the desktop app is invisible to the monitor, so a slow heartbeat keeps the
-display honest. It is a genuine trade-off — it keeps session windows alive — so it is
-exposed as a setting with that explained in plain words, not buried.
+claude.ai or the desktop app is invisible to the monitor, so a heartbeat keeps the display
+honest. It is a genuine trade-off: it keeps session windows alive.
+
+**It used to be a four-way radio group at the top of Settings, and no longer is.** Answering
+it properly requires knowing that a poll is an inference request and that an inference
+request anchors a 5-hour window — two paragraphs of explanation, at the top of the pane, for
+a decision almost nobody has an opinion about. Five minutes is a reasonable answer for both
+kinds of user: often enough to stay honest for someone who also uses claude.ai or the desktop
+app, rare enough to be negligible for everyone else. Removing it also removes a way for a
+Claude Desktop-only user to switch off the only thing refreshing their display.
+
+The preference is still read, so the capability survives without the clutter:
+
+```bash
+defaults write com.victorrodrigues.ClawBar idleBehaviour off   # or five / fifteen / thirty
+```
+
+`off` is the setting for someone who would rather ClawBar never start a session window on
+their behalf. It is documented rather than discoverable, on the grounds that wanting it
+implies already understanding it — which is exactly what the radio group could not assume.
 
 Timers use `DispatchSourceTimer` with generous leeway (`interval / 4`) so the OS coalesces
 wakeups with other timers. No `Timer.scheduledTimer` on the main runloop. Suspend on

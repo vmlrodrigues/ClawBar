@@ -109,9 +109,19 @@ recoverable, so ClawBar shows what it was given.
 **Checking costs a request.** A tiny one — 8 input and 1 output token on Haiku, which did
 not move reported utilisation across 110 logged samples — but a real inference call, and it
 appears to anchor a 5-hour session window. So ClawBar checks on evidence that you are
-*already* using Claude Code, watching `~/.claude`, rather than on a fixed timer. Settings →
-Background refresh controls what happens once you stop; set it to **Off** if you want your
-session window aligned strictly to your own first request.
+*already* using Claude Code, watching `~/.claude`, rather than on a fixed timer. Once you
+stop, it falls back to a five-minute heartbeat — because usage from claude.ai and the desktop
+app is invisible to it, and a frozen number is worse than a slightly early window.
+
+If you would rather it never started a session window on your behalf, turn the heartbeat off:
+
+```sh
+defaults write com.victorrodrigues.ClawBar idleBehaviour off
+```
+
+The display then only refreshes when you open the popover. It is a `defaults` key rather than
+a checkbox because deciding it needs the two paragraphs above, and most people should not
+have to read them.
 
 ## Privacy
 

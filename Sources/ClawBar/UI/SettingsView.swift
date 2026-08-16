@@ -14,37 +14,6 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 18) {
             Text("ClawBar Settings").font(.system(size: 15, weight: .semibold))
 
-            section("Background refresh") {
-                Picker("When Claude Code is idle", selection: $prefs.idleBehaviour) {
-                    ForEach(IdleBehaviour.allCases) { Text($0.label).tag($0) }
-                }
-                .pickerStyle(.radioGroup)
-
-                // The old wording assumed Claude Code. For someone who only uses chat and
-                // Cowork there is no activity signal at all, so "Off" does not mean
-                // "refresh less" — it means never refresh. Recommending it to them
-                // without saying so would strand them on a frozen reading.
-                Text(ClaudeCode.hasRunBefore
-                     ? """
-                       ClawBar refreshes every minute while you are working in Claude Code, \
-                       which it detects by watching its files. It cannot see usage from \
-                       claude.ai or the Claude desktop app — this setting is how often it \
-                       checks anyway. Shorten it if you use Claude in both places; turn it \
-                       off if you would rather ClawBar never start a 5-hour session window \
-                       on its own, since each check is a real request.
-                       """
-                     : """
-                       ClawBar detects when you are working by watching Claude Code's \
-                       files, and there are none here — so this timer is the only thing \
-                       that refreshes the display. Turning it off means the menu bar will \
-                       only update when you open this popover. Each check is a real \
-                       request and may start a 5-hour session window, which is the \
-                       trade-off for keeping the number current.
-                       """)
-                    .font(.system(size: 10)).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
             section("Keyboard shortcuts") {
                 Toggle("Cycle session → weekly → both", isOn: $prefs.hotKeyEnabled)
                 ShortcutRecorder(keyCode: $prefs.hotKeyCode,

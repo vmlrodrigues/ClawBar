@@ -25,10 +25,22 @@ enum BarFormat: String, CaseIterable, Identifiable, Codable {
 
 /// How aggressively to keep polling once Claude Code has gone quiet.
 ///
-/// This is the one setting with a real trade-off behind it, so it is surfaced plainly
-/// rather than buried: every poll is an inference request, and an inference request most
-/// likely anchors a 5-hour session window. Polling an idle machine manufactures the usage
-/// the app exists to report.
+/// **No longer shown in Settings.** It was a four-way radio group at the top of the pane,
+/// and it was the wrong thing to greet someone with: answering it properly needs to know
+/// that a poll is an inference request and that an inference request anchors a 5-hour
+/// window, which is two paragraphs of explanation for a decision almost nobody has an
+/// opinion about. Five minutes is a good answer for both kinds of user — often enough to
+/// stay honest for people who also use claude.ai or the desktop app, rare enough to be
+/// negligible for everyone else.
+///
+/// The preference is still read, so the escape hatch survives for anyone who wants it:
+///
+///     defaults write com.victorrodrigues.ClawBar idleBehaviour off
+///
+/// `off` still means never poll on a timer — the display then only refreshes when the
+/// popover opens. That is the setting for someone who would rather ClawBar never start a
+/// session window on their behalf, and it is documented rather than discoverable because
+/// wanting it implies already understanding it.
 enum IdleBehaviour: String, CaseIterable, Identifiable, Codable {
     case off           // stop entirely; refresh on demand
     case five          // for people who also use claude.ai or the desktop app
@@ -124,7 +136,7 @@ final class Preferences: ObservableObject {
         defaults.register(defaults: [
             Keys.barMode: BarMode.session.rawValue,
             Keys.barFormat: BarFormat.percentTime.rawValue,
-            Keys.idleBehaviour: IdleBehaviour.fifteen.rawValue,
+            Keys.idleBehaviour: IdleBehaviour.five.rawValue,
             Keys.notificationsEnabled: true,
             Keys.writeUsageLog: true,
             Keys.hotKeyEnabled: true,
