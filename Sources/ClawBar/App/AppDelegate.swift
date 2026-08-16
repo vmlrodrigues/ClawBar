@@ -532,6 +532,38 @@ extension AppDelegate: NSWindowDelegate {
         (notification.object as? NSWindow)?.level = .normal
     }
 
+    /// Settings closes when you click away from it, like the popover it is reached from.
+    ///
+    /// It is a small panel belonging to a menu bar app, not a document. Every control
+    /// writes straight through to `UserDefaults` as it is changed, so dismissing it can
+    /// never lose anything, and making someone aim for the red button to put away a panel
+    /// they opened from the menu bar is friction for its own sake.
+    ///
+    /// **Settings only.** Onboarding is deliberately excluded: someone is part-way through
+    /// pasting a token into it, and a mis-click that discarded that would mean going back to
+    /// the terminal for a fresh one.
+    func windowDidResignKey(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow, window === settingsWindow else { return }
+
+        // Deferred by one runloop pass. Closing a window from inside its own resign-key
+        // notification mutates the window list while AppKit is still walking it. The
+        // re-check covers the window regaining focus in between — clicking the title bar of
+        // a window that is about to close should not close it.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.settingsWindow === window, !window.isKeyWindow else { return }
+
+            // "Outside" means outside ClawBar, or the popover. Focus moving to another of
+            // our own windows is not a dismissal: Sparkle's update dialog is opened by a
+            // button *inside* Settings, and having Settings disappear the instant you press
+            // it reads as a crash rather than a tidy-up. Onboarding, reached the same way
+            // via "Replace token…", is the other case.
+            let popoverWindow = self.popover?.contentViewController?.view.window
+            if let key = NSApp.keyWindow, key !== popoverWindow { return }
+
+            window.close()
+        }
+    }
+
     /// Drop our strong reference so ARC can free the window and, with it, the
     /// NSHostingController and SwiftUI view graph it owns.
     func windowWillClose(_ notification: Notification) {
