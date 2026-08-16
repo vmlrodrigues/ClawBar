@@ -46,7 +46,9 @@ a colour that fires when nothing needs doing is a colour you stop reading.
 </picture>
 
 - Percentage used, a progress bar, and when the window resets — named by day, so
-  `resets Thu 05:00 · in 4d 8h` rather than an ambiguous bare time.
+  `resets Thu 5:00 am · in 4d 8h` rather than an ambiguous bare time. Times and dates use
+  your own conventions: the 12- or 24-hour clock as your system is set, and the field order
+  your locale puts them in.
 - **A projection for the week.** A translucent extension of the bar shows where you are
   heading, with the figure on a caret beneath it. If you are heading past 100%, chevrons
   appear beyond the bar's right edge — `›`, `››`, `›››` — because a clamped bar cannot

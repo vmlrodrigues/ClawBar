@@ -272,7 +272,7 @@ a one-line change.
 
 One `WindowRow` per window: bar, percentage, status, reset.
 
-- **5h** — "Current session", "resets 22:00 · in 2h 18m".
+- **5h** — "Current session", "resets 10:00 pm · in 2h 18m".
 - **7d** — "All models", same treatment. The countdown is safe: comparison against the
   official Usage panel confirmed a fixed weekly window (VERIFICATION.md).
 - **overage** — "Usage credits", hidden when utilization is 0 and status is `allowed`.
@@ -590,20 +590,51 @@ the projection; one who never approaches it never sees it.
 
 ### Reset labels name the day
 
-`resets 05:00 · in 4d 8h` is ambiguous — which 05:00? The label now scales with distance:
+`resets 5:00 am · in 4d 8h` is ambiguous — which 5:00 am? The label now scales with distance
+(rendered here in en_AU):
 
 | Distance | Rendered |
 |---|---|
-| Today | `resets 22:30` |
-| Tomorrow | `resets tomorrow 04:23` |
-| Within a week | `resets Thu 05:00` |
-| Beyond | `resets Mon 24 Aug 20:23` |
+| Today | `resets 10:30 pm` |
+| Tomorrow | `resets tomorrow 4:23 am` |
+| Within a week | `resets Thu 5:00 am` |
+| Beyond | `resets Mon, 24 Aug 8:23 pm` |
 
 Relative wording near at hand because "tomorrow" reads faster than a weekday name;
 absolute beyond a week, where a bare weekday becomes ambiguous again. The countdown stays
 alongside: the named time answers "when can I plan for this", the duration answers "how
 long must I wait", and neither substitutes for the other. `--dates` exercises every
 branch, since only one is reachable at any given moment.
+
+### Nothing here picks a clock or a date order
+
+Every user-facing time comes from `clockTime`, which uses `timeStyle = .short`, and every
+date from a template passed to `DateFormatter.dateFormat(fromTemplate:options:locale:)`.
+Neither names a pattern. This is not stylistic tidiness — it is the fix for a real bug.
+
+`clockTime` was `HH:mm`, which renders 24-hour for everyone. That is wrong in most locales,
+and it ignored the explicit 12/24-hour switch in System Settings, so a user who had stated a
+preference was overruled by a string literal. It was also wrong on the machine this was
+written on: **en_AU defaults to am/pm**, so ClawBar disagreed with the menu bar clock beside
+it for every release up to 0.5.3.
+
+The date patterns failed the same way and one step further. `EEE d MMM` fixes
+day-before-month, which is wrong in the United States; and `'at'` in
+`EEE d MMM 'at' HH:mm` stays English in every locale. A template cannot express those
+mistakes — it names the fields wanted and lets the locale order them, supply separators, and
+choose a connector. Some locales need shapes a reordering could never produce: ja_JP renders
+`8月16日(日)`, which is a different construction, not a permutation of the same tokens.
+
+Verified against an explicit hour cycle rather than by changing system settings:
+`en_AU@hours=h23` renders `17:50` and `en_GB@hours=h12` renders `5:50 pm`, so the override is
+honoured in both directions. `--dates` accepts `-AppleLocale <id>` for spot checks, since
+NSUserDefaults takes an argument domain. Note that `-AppleICUForce24HourTime` does *not* work
+that way — it reaches `UserDefaults` but never `Locale.current`, so it looks like the fix has
+failed when it has not.
+
+The one deliberate exception is the `CLAWBAR_DEBUG` poll stamp, which stays `HH:mm:ss`: it
+goes to stderr for comparing poll gaps, where am/pm makes spans across noon harder to read
+and locale-dependence makes logs from two machines incomparable.
 
 ### How it is drawn
 
