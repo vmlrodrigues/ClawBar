@@ -155,11 +155,24 @@ enum ClawBarMain {
                     // Exercise the clear that opening the popover performs. Worth asserting
                     // rather than assuming: the alternative is opening Notification Centre
                     // and counting by eye, which is how a silently broken clear survives.
+                    // Poll rather than sleep a fixed interval. Delivery is asynchronous and
+                    // not quick: a flat 700ms caught one of four notifications on the first
+                    // run and none on the next two, so the check reported INCONCLUSIVE and
+                    // asserted nothing. A test that usually declines to test is not a gate.
                     let centre = UNUserNotificationCenter.current()
-                    let before = await centre.deliveredNotifications().count
+                    var before = 0
+                    for _ in 0..<25 {                       // up to ~5s
+                        before = await centre.deliveredNotifications().count
+                        if before > 0 { break }
+                        try? await Task.sleep(nanoseconds: 200_000_000)
+                    }
                     centre.removeAllDeliveredNotifications()
-                    try? await Task.sleep(nanoseconds: 700_000_000)   // removal is async
-                    let after = await centre.deliveredNotifications().count
+                    var after = before
+                    for _ in 0..<15 {                       // removal is async too
+                        after = await centre.deliveredNotifications().count
+                        if after == 0 { break }
+                        try? await Task.sleep(nanoseconds: 200_000_000)
+                    }
                     print("\ndelivered before clear: \(before)   after: \(after)")
                     print(before > 0 && after == 0
                           ? "PASS — opening the popover clears them"
