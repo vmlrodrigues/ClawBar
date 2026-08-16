@@ -45,6 +45,37 @@ VERSION="$(plist CFBundleShortVersionString)"
 BUILD="$(plist CFBundleVersion)"
 MIN_SYSTEM="$(plist LSMinimumSystemVersion)"
 
+# ---- the built app must correspond to a commit ---------------------------------
+# `gh release create` tags whatever HEAD happens to be. If the release's own work is still
+# uncommitted, the tag lands on the *previous* release's commit, and the published source
+# then contradicts the published binary. That is not hypothetical: v0.4.3, v0.4.4, v0.4.5
+# and v0.5.2 all shipped with the tag on the wrong commit and had to be moved by hand.
+#
+# BUILD is the commit count, so a dirty tree also produces a build number that identifies a
+# commit whose contents are not what was built. Checking all three is cheap; each catches a
+# different way of getting here.
+if ! git -C "$ROOT" diff --quiet HEAD -- 2>/dev/null; then
+    echo "error: uncommitted changes — commit the release's work before publishing." >&2
+    echo "       Otherwise the tag lands on the previous commit and BUILD identifies" >&2
+    echo "       source that was never built." >&2
+    git -C "$ROOT" status --short >&2
+    exit 1
+fi
+
+HEAD_VERSION="$(git -C "$ROOT" show HEAD:VERSION 2>/dev/null | tr -d '[:space:]')"
+if [ "$HEAD_VERSION" != "$VERSION" ]; then
+    echo "error: VERSION at HEAD is '$HEAD_VERSION' but the built app says '$VERSION'." >&2
+    echo "       Commit the VERSION bump, then rebuild — the binary must match a commit." >&2
+    exit 1
+fi
+
+HEAD_BUILD="$(git -C "$ROOT" rev-list --count HEAD)"
+if [ "$HEAD_BUILD" != "$BUILD" ]; then
+    echo "error: the app was built at commit count $BUILD, but HEAD is $HEAD_BUILD." >&2
+    echo "       Rebuild from HEAD so the shipped build number names the tagged commit." >&2
+    exit 1
+fi
+
 SIGN_UPDATE="$(find "$ROOT/.build/artifacts/sparkle" -type f -name sign_update 2>/dev/null | head -1)"
 [ -x "$SIGN_UPDATE" ] || { echo "error: sign_update not found — run 'swift package resolve'" >&2; exit 1; }
 
@@ -75,16 +106,25 @@ STABLE="$ROOT/dist/ClawBar.dmg"
 
 cat <<EOF
 
-Local work done. To publish:
+Local work done — the app at HEAD ($HEAD_BUILD) is what was built. To publish:
+
+  1. Create the release. This tags HEAD, which the guards above have confirmed is the
+     commit this binary was built from:
 
   gh release create "v$VERSION" \\
       "$STAGED#ClawBar $VERSION (macOS, notarised)" \\
       "$STABLE#ClawBar (latest, Apple Silicon)" \\
       --repo "$REPO" --title "ClawBar $VERSION" --notes "…"
 
+  2. Then commit the appcast, which advertises it:
+
   git add appcast.xml && git commit -m "Publish $VERSION" && git push
 
-Order matters: create the release first, so the enclosure URL resolves by the time the
-appcast advertising it goes live. Sparkle reads:
+The release comes first so the enclosure URL resolves before the feed advertising it goes
+live — a feed pointing at a 404 is worse than a late feed. The appcast commit landing after
+the tag is expected and correct: the tag marks the source that was built, and the appcast is
+a record of having published it.
+
+Sparkle reads:
   $(plist SUFeedURL)
 EOF
