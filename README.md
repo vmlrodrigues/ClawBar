@@ -29,8 +29,9 @@ notarised by Apple, so Gatekeeper stays quiet.
 
 **In the menu bar**, always visible: a glyph for which window you are looking at — a clock
 for the session, a calendar for the week — the percentage used, and how long until it
-resets. Two global shortcuts, both rebindable: **⌃⌥⌘P** opens the popover and **⌃⌥⌘U**
-cycles session → weekly → both, so neither needs the mouse.
+resets. Two global shortcuts, both configurable in Settings: one cycles session → weekly →
+both (**⌃⌥⌘U** out of the box), the other opens the popover. The second ships unbound — pick
+the keys yourself rather than have a combination claimed on your behalf.
 
 The figure turns **orange at 80%** and **red at 95%**. Nothing below that, deliberately:
 a colour that fires when nothing needs doing is a colour you stop reading.

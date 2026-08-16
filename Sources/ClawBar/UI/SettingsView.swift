@@ -46,23 +46,6 @@ struct SettingsView: View {
             }
 
             section("Keyboard shortcuts") {
-                Toggle("Show the popover", isOn: $prefs.popoverHotKeyEnabled)
-                ShortcutRecorder(keyCode: $prefs.popoverHotKeyCode,
-                                 modifiers: $prefs.popoverHotKeyModifiers,
-                                 isEnabled: prefs.popoverHotKeyEnabled,
-                                 defaultKeyCode: DefaultHotKey.popoverKeyCode,
-                                 defaultModifiers: DefaultHotKey.popoverModifiers,
-                                 otherKeyCode: prefs.hotKeyCode,
-                                 otherModifiers: prefs.hotKeyModifiers)
-                if prefs.popoverHotKeyEnabled && !HotKeyCenter.shared.isRegistered(.showPopover) {
-                    Label("Another app already owns that combination — pick a different one.",
-                          systemImage: "exclamationmark.triangle.fill")
-                        .font(.system(size: 10)).foregroundStyle(.orange)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Divider().padding(.vertical, 2)
-
                 Toggle("Cycle session → weekly → both", isOn: $prefs.hotKeyEnabled)
                 ShortcutRecorder(keyCode: $prefs.hotKeyCode,
                                  modifiers: $prefs.hotKeyModifiers,
@@ -71,12 +54,23 @@ struct SettingsView: View {
                                  defaultModifiers: DefaultHotKey.modifiers,
                                  otherKeyCode: prefs.popoverHotKeyCode,
                                  otherModifiers: prefs.popoverHotKeyModifiers)
-                if prefs.hotKeyEnabled && !HotKeyCenter.shared.isRegistered(.cycleBarMode) {
-                    Label("Another app already owns that combination — pick a different one.",
-                          systemImage: "exclamationmark.triangle.fill")
-                        .font(.system(size: 10)).foregroundStyle(.orange)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                shortcutStatus(enabled: prefs.hotKeyEnabled,
+                               modifiers: prefs.hotKeyModifiers,
+                               registered: HotKeyCenter.shared.isRegistered(.cycleBarMode))
+
+                Divider().padding(.vertical, 2)
+
+                Toggle("Show the popover", isOn: $prefs.popoverHotKeyEnabled)
+                ShortcutRecorder(keyCode: $prefs.popoverHotKeyCode,
+                                 modifiers: $prefs.popoverHotKeyModifiers,
+                                 isEnabled: prefs.popoverHotKeyEnabled,
+                                 defaultKeyCode: DefaultHotKey.unsetKeyCode,
+                                 defaultModifiers: DefaultHotKey.unsetModifiers,
+                                 otherKeyCode: prefs.hotKeyCode,
+                                 otherModifiers: prefs.hotKeyModifiers)
+                shortcutStatus(enabled: prefs.popoverHotKeyEnabled,
+                               modifiers: prefs.popoverHotKeyModifiers,
+                               registered: HotKeyCenter.shared.isRegistered(.showPopover))
 
                 Text("Both work from any app. No Accessibility permission needed.")
                     .font(.system(size: 10)).foregroundStyle(.secondary)
@@ -170,6 +164,25 @@ struct SettingsView: View {
         }
         .padding(22)
         .frame(width: 430)
+    }
+
+    /// Why a shortcut is not working, when it is not.
+    ///
+    /// The two causes need separating. An unbound shortcut also fails to register, and
+    /// reporting that as "another app already owns that combination" accuses something
+    /// innocent of a problem the user has not created yet.
+    @ViewBuilder
+    private func shortcutStatus(enabled: Bool, modifiers: Int, registered: Bool) -> some View {
+        if enabled && modifiers == 0 {
+            Text("Click the button, then press the combination you want.")
+                .font(.system(size: 10)).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        } else if enabled && !registered {
+            Label("Another app already owns that combination — pick a different one.",
+                  systemImage: "exclamationmark.triangle.fill")
+                .font(.system(size: 10)).foregroundStyle(.orange)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     private func section<Content: View>(_ title: String,

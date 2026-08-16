@@ -91,6 +91,37 @@ enum ClawBarMain {
             exit(0)
         }
 
+        // `--render-settings` draws the Settings window. Its Pickers come out as yellow
+        // placeholder blocks — ImageRenderer will not draw AppKit-backed controls — so this
+        // is not a screenshot. It is still the only way to see layout and ordering without
+        // Screen Recording permission, and not having it is how a new row ended up above an
+        // existing one that had been there for ten releases.
+        //
+        // Expect a false "another app already owns that combination" under the shortcuts:
+        // AppDelegate never runs here, so nothing is registered and `isRegistered` is false
+        // for every action. An artefact of the harness, not a conflict.
+        if let i = CommandLine.arguments.firstIndex(of: "--render-settings") {
+            let path = i + 1 < CommandLine.arguments.count
+                ? CommandLine.arguments[i + 1] : "/tmp/clawbar-settings.png"
+            let dark = CommandLine.arguments.contains("--dark")
+            MainActor.assumeIsolated {
+                let renderer = ImageRenderer(
+                    content: SettingsView(updater: UpdaterController(), onReplaceToken: {})
+                        .environment(\.colorScheme, dark ? .dark : .light)
+                        .background(dark ? Color.black : Color.white)
+                )
+                renderer.scale = 2
+                if let image = renderer.nsImage,
+                   let tiff = image.tiffRepresentation,
+                   let rep = NSBitmapImageRep(data: tiff),
+                   let png = rep.representation(using: .png, properties: [:]) {
+                    try? png.write(to: URL(fileURLWithPath: path))
+                    print("wrote \(path)")
+                } else { print("render failed") }
+            }
+            exit(0)
+        }
+
         // `--test-hotkeys` proves two global shortcuts can be registered at once — the whole
         // point of HotKeyCenter holding a dictionary rather than one ref. Otherwise this is
         // only checkable by pressing the keys, and synthesising a keypress needs the

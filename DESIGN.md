@@ -204,10 +204,21 @@ independently.
 
 Two **global keyboard shortcuts**, both rebindable and independently switchable off:
 
-| Default | Action |
+| Action | Ships as |
 |---|---|
-| ⌃⌥⌘U | Cycle session → weekly → both |
-| ⌃⌥⌘P | Show the popover — the same as clicking the status item |
+| Cycle session → weekly → both | ⌃⌥⌘U |
+| Show the popover — the same as clicking the status item | unbound, off |
+
+**The second one ships without a binding, deliberately.** A global shortcut is a scarce,
+system-wide resource, and choosing one on a user's behalf spends it on a guess about what is
+free on a machine you cannot see. The first shortcut keeps ⌃⌥⌘U only because it has shipped
+that way since the beginning and changing it would break people. Anything added afterwards
+starts at "Not set" with its toggle off, and the Settings row explains how to bind it.
+Zero modifiers is the unset marker; `register` already refuses that, so an unbound action is
+inert without a special case anywhere.
+
+New rows go **below** the existing ones. Reordering a settings pane moves controls out from
+under someone who had learned where they were.
 
 `HotKeyCenter` therefore holds a dictionary keyed by `HotKeyAction`, not a single
 `EventHotKeyRef`. The first version could not have had two: `register` began by calling
@@ -759,6 +770,7 @@ the app.
 | `--render-menubar <png> [--dark]` | The status item in every mode and severity |
 | `--render-windows <png> [--dark]` | The two popover rows as a user sees them |
 | `--render-popover <png> [--dark]` | The whole popover, offscreen |
+| `--render-settings <png> [--dark]` | The Settings window — layout and ordering, Pickers excepted |
 | `--render-states <png>` | The projection across its range, including past 100% |
 | `--render-bands <png>` | The health bands at their boundaries |
 | `--render-onboarding <png>` | First run; pair with `CLAWBAR_FAKE_NO_CLAUDE=1` |

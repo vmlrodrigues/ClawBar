@@ -22,14 +22,18 @@ struct ShortcutRecorder: View {
     @State private var monitor: Any?
     @State private var rejected: String?
 
+    /// Zero modifiers is the unset marker, so there is nothing to render as a combination.
+    private var label: String {
+        if recording { return "Press keys…" }
+        if modifiers == 0 { return "Not set" }
+        return HotKeyFormatting.display(keyCode: keyCode, carbonModifiers: modifiers)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 8) {
                 Button { recording ? stop() : start() } label: {
-                    Text(recording
-                         ? "Press keys…"
-                         : HotKeyFormatting.display(keyCode: keyCode,
-                                                    carbonModifiers: modifiers))
+                    Text(label)
                         .font(.system(size: 13, weight: .medium, design: .rounded))
                         .frame(minWidth: 84)
                         .padding(.vertical, 2)
@@ -42,13 +46,15 @@ struct ShortcutRecorder: View {
                     Text("⎋ to cancel")
                         .font(.system(size: 10)).foregroundStyle(.secondary)
                 } else {
-                    Button("Reset") {
+                    // "Reset" only means something when there is a default to return to.
+                    // An unbound shortcut resets to nothing, which is a clear, not a reset.
+                    Button(defaultModifiers == 0 ? "Clear" : "Reset") {
                         keyCode = defaultKeyCode
                         modifiers = defaultModifiers
                         rejected = nil
                     }
                     .controlSize(.small)
-                    .disabled(!isEnabled)
+                    .disabled(!isEnabled || (defaultModifiers == 0 && modifiers == 0))
                 }
             }
 

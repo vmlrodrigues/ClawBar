@@ -17,14 +17,18 @@ struct HotKeyBinding: Equatable {
     let modifiers: Int
 }
 
-/// Defaults: ⌃⌥⌘U for usage, ⌃⌥⌘P for the popover. Three modifiers make an accidental
-/// clash unlikely, and both are mnemonic rather than merely free.
 enum DefaultHotKey {
+    /// ⌃⌥⌘U — "U" for usage. Shipped since the first release, so it stays put.
     static let keyCode = Int(kVK_ANSI_U)
     static let modifiers = Int(controlKey | optionKey | cmdKey)
 
-    static let popoverKeyCode = Int(kVK_ANSI_P)
-    static let popoverModifiers = Int(controlKey | optionKey | cmdKey)
+    /// Anything added later ships **unbound**. Picking a combination on someone's behalf
+    /// spends a global shortcut they did not ask for, on a guess about what is free — and
+    /// no modifier set is reliably free on a machine you cannot see. Zero modifiers is the
+    /// unset marker, and `register` already refuses it, so an unbound action is inert
+    /// without needing a special case.
+    static let unsetKeyCode = -1
+    static let unsetModifiers = 0
 }
 
 /// System-wide hotkey via Carbon's `RegisterEventHotKey`.

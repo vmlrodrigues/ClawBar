@@ -86,8 +86,9 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(hotKeyModifiers, forKey: Keys.hotKeyModifiers) }
     }
 
-    // The popover shortcut. Stored separately rather than as an array so that adding a
-    // third later does not have to migrate anyone's existing bindings.
+    // The popover shortcut. Ships off and unbound — see DefaultHotKey. Stored separately
+    // rather than as an array so that adding a third later does not have to migrate
+    // anyone's existing bindings.
     @Published var popoverHotKeyEnabled: Bool {
         didSet { defaults.set(popoverHotKeyEnabled, forKey: Keys.popoverHotKeyEnabled) }
     }
@@ -129,9 +130,9 @@ final class Preferences: ObservableObject {
             Keys.hotKeyEnabled: true,
             Keys.hotKeyCode: DefaultHotKey.keyCode,
             Keys.hotKeyModifiers: DefaultHotKey.modifiers,
-            Keys.popoverHotKeyEnabled: true,
-            Keys.popoverHotKeyCode: DefaultHotKey.popoverKeyCode,
-            Keys.popoverHotKeyModifiers: DefaultHotKey.popoverModifiers,
+            Keys.popoverHotKeyEnabled: false,
+            Keys.popoverHotKeyCode: DefaultHotKey.unsetKeyCode,
+            Keys.popoverHotKeyModifiers: DefaultHotKey.unsetModifiers,
         ])
         barMode = BarMode(rawValue: defaults.string(forKey: Keys.barMode) ?? "") ?? .session
         barFormat = BarFormat(rawValue: defaults.string(forKey: Keys.barFormat) ?? "") ?? .percentTime
