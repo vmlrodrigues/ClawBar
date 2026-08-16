@@ -344,6 +344,28 @@ Notifications via `UNUserNotificationCenter` at 80/95% per window, latched so ea
 threshold fires once per crossing, released on window reset or a 5-point drop below the
 threshold (hysteresis).
 
+### Opening the popover clears them
+
+A delivered notification is a snapshot, and this app's snapshots go off. The body embeds a
+countdown computed at post time, so an hour later it asserts "in 2h 18m" against a real
+1h 18m, and the title's percentage is frozen the same way. Left in Notification Centre it is
+not merely redundant next to a permanently visible menu bar figure — it is wrong, and sitting
+beside the correct number.
+
+So `togglePopover()` calls `removeAllDeliveredNotifications()`. Opening the popover is the
+only deliberate "show me the detail" gesture the app has, which makes it the read receipt.
+The API is per-app, so this cannot reach another app's notifications and needs no filtering —
+which is just as well, since the identifiers are random UUIDs with nothing stable to match.
+
+**It must not touch the latch.** `Notifier`'s `fired` set is what stops a threshold
+re-posting on every poll. Clearing it here would repost the notification moments after
+removing it, and keep doing so. The two are deliberately separate state: one is what
+Notification Centre is showing, the other is what has already been said.
+
+`--test-notifications` asserts the clear at the end of its run, because the alternative is
+opening Notification Centre and counting by eye — which is how a silently broken clear
+survives. It reports INCONCLUSIVE rather than PASS when nothing was delivered to remove.
+
 ---
 
 ## 6. Token handling

@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import SwiftUI
+import UserNotifications
 
 /// A window Escape closes.
 ///
@@ -200,6 +201,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         popover.contentViewController?.view.window?.makeKey()
         Task { await model.refresh() }   // always fresh on open
+
+        // Opening the popover is reading the alert, so anything still sitting in
+        // Notification Centre has done its job. It has also stopped being true: the body
+        // embeds a countdown computed when it fired, so an hour later it claims "in 2h 18m"
+        // against a real 1h 18m, and the title's percentage is equally frozen. A menu bar
+        // app whose whole point is a permanently visible number should not leave a stale
+        // copy of it lying about.
+        //
+        // Scoped to this app by the API — it cannot touch another app's notifications.
+        //
+        // Deliberately does NOT clear Notifier's latch. That latch is what stops a
+        // threshold re-firing on every poll; resetting it here would repost the very
+        // notification just cleared, seconds later, forever.
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
     }
 
     private func makePopover() -> NSPopover {

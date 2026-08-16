@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UserNotifications
 
 enum Retainer {
     @MainActor static var delegate: AppDelegate?
@@ -150,6 +151,20 @@ enum ClawBarMain {
                 print("\n\(script.count - failures)/\(script.count) passed")
                 if status == .authorized {
                     print("4 notifications should have appeared in Notification Centre.")
+
+                    // Exercise the clear that opening the popover performs. Worth asserting
+                    // rather than assuming: the alternative is opening Notification Centre
+                    // and counting by eye, which is how a silently broken clear survives.
+                    let centre = UNUserNotificationCenter.current()
+                    let before = await centre.deliveredNotifications().count
+                    centre.removeAllDeliveredNotifications()
+                    try? await Task.sleep(nanoseconds: 700_000_000)   // removal is async
+                    let after = await centre.deliveredNotifications().count
+                    print("\ndelivered before clear: \(before)   after: \(after)")
+                    print(before > 0 && after == 0
+                          ? "PASS — opening the popover clears them"
+                          : (before == 0 ? "INCONCLUSIVE — nothing was delivered to clear"
+                                         : "FAIL — \(after) still present"))
                 }
                 done.flag = true
             }
