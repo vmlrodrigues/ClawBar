@@ -76,6 +76,25 @@ if [ "$HEAD_BUILD" != "$BUILD" ]; then
     exit 1
 fi
 
+# The three checks above all interrogate the *local* repository, which is necessary and not
+# sufficient: `gh release create` tags the REMOTE's HEAD. Commit without pushing and the
+# remote is still a commit behind, so the tag lands there instead — with every local guard
+# reporting success.
+#
+# This is not a theoretical gap. v0.5.3 went out with its tag on the wrong commit for
+# exactly this reason, minutes after the other three guards were added to prevent precisely
+# that class of mistake. Local correctness felt like enough right up until it wasn't.
+BRANCH="$(git -C "$ROOT" rev-parse --abbrev-ref HEAD)"
+REMOTE="${GIT_REMOTE:-origin}"
+git -C "$ROOT" fetch --quiet "$REMOTE" "$BRANCH" 2>/dev/null || true
+if ! git -C "$ROOT" merge-base --is-ancestor HEAD "$REMOTE/$BRANCH" 2>/dev/null; then
+    echo "error: HEAD is not on $REMOTE/$BRANCH yet." >&2
+    echo "       Push before publishing — 'gh release create' tags the remote's HEAD, so an" >&2
+    echo "       unpushed commit puts the tag on whatever the remote last saw." >&2
+    echo "       git push $REMOTE $BRANCH" >&2
+    exit 1
+fi
+
 SIGN_UPDATE="$(find "$ROOT/.build/artifacts/sparkle" -type f -name sign_update 2>/dev/null | head -1)"
 [ -x "$SIGN_UPDATE" ] || { echo "error: sign_update not found — run 'swift package resolve'" >&2; exit 1; }
 
@@ -106,10 +125,11 @@ STABLE="$ROOT/dist/ClawBar.dmg"
 
 cat <<EOF
 
-Local work done — the app at HEAD ($HEAD_BUILD) is what was built. To publish:
+Local work done — the app at HEAD ($HEAD_BUILD) is what was built, and $REMOTE/$BRANCH has it.
+To publish:
 
-  1. Create the release. This tags HEAD, which the guards above have confirmed is the
-     commit this binary was built from:
+  1. Create the release. This tags the remote's HEAD, which the guards above have confirmed
+     is both pushed and the commit this binary was built from:
 
   gh release create "v$VERSION" \\
       "$STAGED#ClawBar $VERSION (macOS, notarised)" \\
