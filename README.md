@@ -1,7 +1,7 @@
 # ClawBar
 
 ![Platform](https://img.shields.io/badge/platform-macOS%2014.0%2B-brightgreen)
-![Universal](https://img.shields.io/badge/Universal-Apple%20Silicon%20%2B%20Intel-black?logo=apple&logoColor=white)
+![Apple Silicon](https://img.shields.io/badge/Apple_Silicon-M1%2B-black?logo=apple&logoColor=white)
 ![Notarised](https://img.shields.io/badge/Notarised-Developer%20ID-success)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Latest release](https://img.shields.io/github/v/release/vmlrodrigues/ClawBar?label=latest)](https://github.com/vmlrodrigues/ClawBar/releases/latest)
@@ -45,7 +45,7 @@ Notifications fire at **80%** and **95%** per window, once per crossing.
 
 ## Requirements
 
-- macOS 14 or later — Apple Silicon or Intel
+- macOS 14 or later, on **Apple Silicon** — there is no Intel build
 - A Claude **Pro** or **Max** subscription
 - **Claude Code**, once, to mint a token
 
@@ -113,7 +113,9 @@ swift package resolve
 ./Scripts/build.sh            # SIGN=0 to skip code signing
 ```
 
-Builds a universal binary and signs it with the first Developer ID in your Keychain.
+Builds for the host architecture and signs it with the first Developer ID in your Keychain.
+Releases are Apple Silicon only; `--arch arm64 --arch x86_64` would make it universal if you
+want that in a fork.
 
 The version comes from the `VERSION` file and changes only when a release is cut; the
 build number is the git commit count, derived automatically. Sparkle compares the build

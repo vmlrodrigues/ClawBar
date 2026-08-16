@@ -33,12 +33,15 @@ IDENTITY="${IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null \
 SIGN="${SIGN:-1}"
 
 echo "==> Building $APP_NAME $VERSION ($BUILD)"
-# Universal. A plain `swift build` produces host-architecture only, which quietly shipped
-# an arm64 binary that would not launch on an Intel Mac — invisible when every machine you
-# build and test on is Apple silicon. Sparkle's xcframework is already universal.
-swift build -c release --arch arm64 --arch x86_64 --package-path "$ROOT"
+# Apple silicon only, deliberately. A plain `swift build` is host-architecture only, so this
+# produces an arm64 binary that will not launch on an Intel Mac. That is the intended scope:
+# adding `--arch arm64 --arch x86_64` costs 0.4 MB and two seconds and would work, but there
+# is no Intel Mac to support, and every untested architecture you ship is a support burden
+# for a machine you cannot reproduce a bug on. The README says Apple Silicon on the badge.
+# Do not "fix" this without asking — it is a decision, not an oversight.
+swift build -c release --package-path "$ROOT"
 
-BIN="$ROOT/.build/apple/Products/Release/$APP_NAME"
+BIN="$ROOT/.build/release/$APP_NAME"
 [ -x "$BIN" ] || { echo "error: no binary at $BIN" >&2; exit 1; }
 
 echo "==> Assembling bundle"

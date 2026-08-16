@@ -79,7 +79,7 @@ Local work done. To publish:
 
   gh release create "v$VERSION" \\
       "$STAGED#ClawBar $VERSION (macOS, notarised)" \\
-      "$STABLE#ClawBar (latest, universal)" \\
+      "$STABLE#ClawBar (latest, Apple Silicon)" \\
       --repo "$REPO" --title "ClawBar $VERSION" --notes "…"
 
   git add appcast.xml && git commit -m "Publish $VERSION" && git push
