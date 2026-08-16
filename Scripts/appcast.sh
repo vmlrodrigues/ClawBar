@@ -67,11 +67,19 @@ python3 "$ROOT/Scripts/appcast-add.py" \
     --min-system "$MIN_SYSTEM" \
     --link "https://github.com/$REPO/releases/tag/v$VERSION"
 
+# A second, version-less copy. The README's Download button points at
+# releases/latest/download/ClawBar.dmg, which resolves only if an asset is named exactly
+# that — and Sparkle needs the version-stamped name, since its enclosure URLs must differ
+# per release. Both are attached; the duplication is a few megabytes.
+STABLE="$ROOT/dist/ClawBar.dmg"
+
 cat <<EOF
 
 Local work done. To publish:
 
-  gh release create "v$VERSION" "$STAGED#ClawBar $VERSION (macOS, notarised)" \\
+  gh release create "v$VERSION" \\
+      "$STAGED#ClawBar $VERSION (macOS, notarised)" \\
+      "$STABLE#ClawBar (latest, universal)" \\
       --repo "$REPO" --title "ClawBar $VERSION" --notes "…"
 
   git add appcast.xml && git commit -m "Publish $VERSION" && git push
