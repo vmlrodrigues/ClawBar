@@ -38,8 +38,19 @@ enum DefaultHotKey {
 /// utility that only wants to toggle a label. Carbon hotkeys need no permission at all,
 /// are not deprecated, and still work on macOS 26.
 @MainActor
-final class HotKeyCenter {
+final class HotKeyCenter: ObservableObject {
     static let shared = HotKeyCenter()
+
+    /// Published so Settings redraws when a registration succeeds or fails.
+    ///
+    /// Without this the warning label lied. Recording a shortcut publishes `Preferences`,
+    /// which redraws Settings immediately — but `applyHotKeys()` is hopped onto a later
+    /// runloop pass, so at the moment of that redraw the new binding is not registered yet
+    /// and the view drew "another app already owns that combination". Registration then
+    /// succeeded a beat later with nothing left to trigger a second redraw, so the dead
+    /// warning stayed on screen. Most visible after Clear, where the previous state really
+    /// was unregistered: clear, rebind the same keys, and be told they were taken.
+    @Published private(set) var registered: Set<HotKeyAction> = []
 
     /// Keyed by `HotKeyAction.rawValue`, which is also the Carbon id. One Carbon event
     /// handler serves every hotkey — it is installed against the application event target,
@@ -56,7 +67,7 @@ final class HotKeyCenter {
 
     /// False when the last `register` for this action failed — usually because another app
     /// already owns the combination. Surfaced in Settings rather than failing silently.
-    func isRegistered(_ action: HotKeyAction) -> Bool { refs[action.rawValue] != nil }
+    func isRegistered(_ action: HotKeyAction) -> Bool { registered.contains(action) }
 
     @discardableResult
     func register(_ action: HotKeyAction, keyCode: Int, carbonModifiers: Int) -> Bool {
@@ -74,6 +85,7 @@ final class HotKeyCenter {
                                          &ref)
         if status == noErr, let ref {
             refs[action.rawValue] = ref
+            registered.insert(action)
             return true
         }
         FileHandle.standardError.write(Data(
@@ -84,6 +96,7 @@ final class HotKeyCenter {
     func unregister(_ action: HotKeyAction) {
         if let ref = refs[action.rawValue] { UnregisterEventHotKey(ref) }
         refs[action.rawValue] = nil
+        registered.remove(action)
     }
 
     private func installHandlerIfNeeded() {

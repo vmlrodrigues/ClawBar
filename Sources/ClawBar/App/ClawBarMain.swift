@@ -156,6 +156,16 @@ enum ClawBarMain {
                 print(dup
                       ? "  NOTE — Carbon allowed the same combination twice"
                       : "  PASS — Carbon refuses a duplicate, so ShortcutRecorder rejects it first")
+
+                // Clear, then bind the *same* combination again. Reported as failing in the
+                // UI, which turned out to be a stale label rather than a failed
+                // registration — but the underlying release-and-reclaim is worth asserting,
+                // because if Carbon did hold the combination the message would be right.
+                centre.unregister(.showPopover)
+                let reclaimed = centre.register(.showPopover, keyCode: two.code, carbonModifiers: two.mods)
+                print(reclaimed
+                      ? "  PASS — a cleared combination can be bound again immediately"
+                      : "  FAIL — Carbon still holds it after unregister")
             }
             exit(0)
         }

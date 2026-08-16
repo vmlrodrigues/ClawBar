@@ -3,6 +3,10 @@ import ServiceManagement
 
 struct SettingsView: View {
     @ObservedObject var prefs = Preferences.shared
+    // Observed, not just read: registration completes a runloop pass after the preference
+    // changes, so without this the shortcut warnings render from stale state and never
+    // correct themselves.
+    @ObservedObject var hotKeys = HotKeyCenter.shared
     @ObservedObject var updater: UpdaterController
     var onReplaceToken: () -> Void
 
@@ -25,7 +29,7 @@ struct SettingsView: View {
                                  otherModifiers: prefs.popoverHotKeyModifiers)
                 shortcutStatus(enabled: prefs.hotKeyEnabled,
                                modifiers: prefs.hotKeyModifiers,
-                               registered: HotKeyCenter.shared.isRegistered(.cycleBarMode))
+                               registered: hotKeys.isRegistered(.cycleBarMode))
 
                 Divider().padding(.vertical, 2)
 
@@ -39,7 +43,7 @@ struct SettingsView: View {
                                  otherModifiers: prefs.hotKeyModifiers)
                 shortcutStatus(enabled: prefs.popoverHotKeyEnabled,
                                modifiers: prefs.popoverHotKeyModifiers,
-                               registered: HotKeyCenter.shared.isRegistered(.showPopover))
+                               registered: hotKeys.isRegistered(.showPopover))
 
                 Text("Both work from any app. No Accessibility permission needed.")
                     .font(.system(size: 10)).foregroundStyle(.secondary)
