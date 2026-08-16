@@ -799,8 +799,33 @@ plain `ClawBar.dmg`, because the README's download button uses
 name. Publishing only the stamped one leaves the button 404ing, which is invisible to anyone
 who tests updates but not the front page. The duplication is a few megabytes per release.
 
-`Scripts/appcast.sh` refuses to run if a tag for the current `VERSION` already exists, and
-refuses to publish a DMG without a stapled notarisation ticket.
+### The binary must correspond to a commit
+
+`gh release create` tags whatever the **remote's** HEAD is. Publish before the release's own
+work is committed and pushed, and the tag lands on the previous release's commit — so the
+published source contradicts the published binary, and `CFBundleVersion`, being the commit
+count, names source that was never built.
+
+Four tags reached the public repo this way (v0.4.3, v0.4.4, v0.4.5, v0.5.2) before being
+moved by hand. v0.5.2 was the clearest: the DMG reported `0.5.2 (38)` while commit 38 had
+`VERSION` 0.5.1, because the bump was still sitting unstaged.
+
+`Scripts/appcast.sh` now refuses to proceed unless all of:
+
+| Guard | Catches |
+|---|---|
+| working tree clean | building from uncommitted work |
+| `HEAD:VERSION` == built version | the v0.5.2 failure exactly |
+| build number == commit count at HEAD | publishing a stale build |
+| HEAD is an ancestor of `origin/<branch>` | committed but not pushed |
+
+The fourth exists because the first three do not cover the case that matters. They all
+interrogate the *local* repository, and `gh release create` acts on the remote — so v0.5.3
+went out tagged on the wrong commit anyway, minutes after the other three were written to
+prevent that. Local correctness is not the property being asserted.
+
+It also still refuses if a tag for the current `VERSION` already exists, or if the DMG
+carries no stapled notarisation ticket.
 
 ## 12. Versioning
 
