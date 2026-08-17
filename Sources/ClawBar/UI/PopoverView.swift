@@ -238,6 +238,35 @@ struct PopoverView: View {
         }
     }
 
+    /// Both global shortcuts on one line, composed from whichever are actually bound.
+    ///
+    /// Discoverability is the whole point: a global shortcut is invisible until you open
+    /// Settings and go looking for it, and the cycling one in particular does something you
+    /// would never guess the bar could do.
+    ///
+    /// Four states, not two. Either shortcut can be switched off *or* cleared to no
+    /// binding, so this returns nil when neither is live rather than rendering a stray
+    /// separator or a sentence about a key combination that does not exist.
+    ///
+    /// "from anywhere" survives only in the single-shortcut case. It is the point of a
+    /// global shortcut and worth the words when there is room; with both bound, the
+    /// parallel construction carries it and the line is long enough already.
+    private var shortcutHint: String? {
+        func bound(_ enabled: Bool, _ code: Int, _ modifiers: Int) -> String? {
+            guard enabled, modifiers != 0 else { return nil }
+            return HotKeyFormatting.display(keyCode: code, carbonModifiers: modifiers)
+        }
+        let cycle = bound(prefs.hotKeyEnabled, prefs.hotKeyCode, prefs.hotKeyModifiers)
+        let open = bound(prefs.popoverHotKeyEnabled, prefs.popoverHotKeyCode, prefs.popoverHotKeyModifiers)
+
+        switch (cycle, open) {
+        case let (c?, o?): return "\(c) cycles these · \(o) opens this"
+        case let (c?, nil): return "\(c) cycles these from anywhere"
+        case let (nil, o?): return "\(o) opens this from anywhere"
+        case (nil, nil): return nil
+        }
+    }
+
     private var setupPrompt: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("ClawBar needs a token before it can show anything.")
@@ -306,11 +335,15 @@ struct PopoverView: View {
                 }
                 .pickerStyle(.segmented).labelsHidden().controlSize(.small)
             }
-            if prefs.hotKeyEnabled {
-                // Discoverability: the shortcut is otherwise invisible until you open
-                // Settings and go looking for it.
-                Text("\(HotKeyFormatting.display(keyCode: prefs.hotKeyCode, carbonModifiers: prefs.hotKeyModifiers)) cycles these from anywhere")
+            if let shortcutHint {
+                // Wraps rather than truncates. On one line for every realistic binding —
+                // the worst case the recorder permits, four modifiers and the longest key
+                // name on both shortcuts, measures 260pt against 264pt available. Four
+                // points is not margin worth trusting, and a hint that clips is worse than
+                // one that takes a second line.
+                Text(shortcutHint)
                     .font(.system(size: 10)).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             HStack(spacing: 6) {
                 Text("Format").font(.system(size: 11)).foregroundStyle(.secondary)
