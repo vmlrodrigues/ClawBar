@@ -29,9 +29,18 @@ notarised by Apple, so Gatekeeper stays quiet.
 
 **In the menu bar**, always visible: a glyph for which window you are looking at — a clock
 for the session, a calendar for the week — the percentage used, and how long until it
-resets. Two global shortcuts, both configurable in Settings: one cycles session → weekly →
-both (**⌃⌥⌘U** out of the box), the other opens the popover. The second ships unbound — pick
-the keys yourself rather than have a combination claimed on your behalf.
+resets.
+
+**Two global shortcuts**, both set in Settings and both working from any app, with no
+Accessibility permission needed:
+
+| | |
+|---|---|
+| **Open the popover** | Same as clicking the menu bar item. Ships unbound — pick your own. |
+| **Cycle session → weekly → both** | ⌃⌥⌘U out of the box. |
+
+Neither combination is claimed for you beyond that one legacy default: a global shortcut is
+system-wide, and guessing what is free on someone else's machine is not a guess worth making.
 
 The figure turns **orange at 80%** and **red at 95%**. Nothing below that, deliberately:
 a colour that fires when nothing needs doing is a colour you stop reading.
@@ -102,9 +111,14 @@ table. They can change shape or vanish without notice, and if they do, ClawBar b
 failure can be diagnosed rather than guessed at.
 
 **The figure can read one point below Claude's own Usage panel.** The header carries two
-decimal places and the server floors to them, so `0.28` means anywhere in 28.00–28.99%.
-Claude's panel has the full-precision number and rounds it. That precision is not
-recoverable, so ClawBar shows what it was given.
+decimal places of a 0–1 fraction — whole percentage points — and floors. So `0.47` means the
+truth is anywhere in 47.00–47.99%, while Claude's panel holds the real number and rounds it:
+47.6 shows there as 48%, and here as 47%.
+
+Both are honest about what they know. The precision is simply not in the header, and rounding
+up to chase the official figure would invent a digit that was never sent. It resolves itself
+as usage climbs. A consequence worth knowing: ClawBar can read low but never high, so the
+number is a floor on your usage, not a ceiling.
 
 **Checking costs a request.** A tiny one — 8 input and 1 output token on Haiku, which did
 not move reported utilisation across 110 logged samples — but a real inference call, and it
