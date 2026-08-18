@@ -110,11 +110,12 @@ struct WindowRow: View {
                     .font(.system(size: 9, weight: .medium))
                     .monospacedDigit()
                     .foregroundStyle(projectionColour(projection.outlook))
-                    // Trailing inset keeps it clear of the chevrons, which sit just
-                    // beyond the bar's right edge; the top padding matches the breathing
-                    // room the caret variant gets from its 12pt row.
+                    // Flush right, so it lines up with the percentage directly above it
+                    // rather than floating at an arbitrary inset. The 20pt it used to carry
+                    // was clearance for the chevrons, which are no longer a concern: they
+                    // sit 3pt beyond the bar's right edge and one row up, so nothing here
+                    // can reach them.
                     .padding(.top, 3)
-                    .padding(.trailing, 20)
                     .frame(maxWidth: .infinity, alignment: .trailing)
                     .help(projectionDetail(projection))
             } else if let projection {
@@ -134,7 +135,11 @@ struct WindowRow: View {
                             .font(.system(size: 9, weight: .medium))
                             .monospacedDigit()
                             .frame(width: Self.labelWidth, alignment: flip ? .trailing : .leading)
-                            .offset(x: flip ? x - Self.labelWidth - 3 : x + 7)
+                            // 7, not 3. The caret occupies x-3 to x+4, so a 3pt offset
+                            // put the label's right edge exactly on the caret's left edge
+                            // and the glyph collided with the "%". This clears it by the
+                            // same margin the unflipped side gets after the caret.
+                            .offset(x: flip ? x - Self.labelWidth - 7 : x + 7)
                     }
                     .foregroundStyle(projectionColour(projection.outlook))
                     .help(projectionDetail(projection))
