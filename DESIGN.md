@@ -776,7 +776,15 @@ over  100%   5.0pt   5.0pt   5.0pt      <- after
 ```
 
 An overlay is measured against its parent and cannot resize it, so the glyphs overhang the
-5pt band without moving anything.
+bar's band without moving anything.
+
+**The bar is 10pt, and that number was rendered rather than argued.** It was 5, which reads
+as a hairline: the fill level is hard to judge at a glance — the bar's only job — and the
+projection ghost at 30% opacity was close to invisible, which made the whole projection look
+weak. 5, 6, 7, 8, 10, 12 and 16 were drawn at real width in the real sampled colours before
+picking. 10 is about what macOS gives its own Battery and Storage meters and sits
+proportionate to the 12pt title beside it. 16 is what the layout bug above produced for a
+release; it dominates the row, and looked good only by comparison with 5.
 
 **Above 100% the caret is dropped.** The first attempt kept it, and it pointed at the
 clamped position — indicating 100% while the label read 200%, which is the original bug

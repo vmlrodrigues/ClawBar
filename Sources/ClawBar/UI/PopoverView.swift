@@ -10,6 +10,16 @@ struct WindowRow: View {
     /// exactly without measuring text.
     private static let labelWidth: CGFloat = 84
 
+    /// Was 5, which read as a hairline — the fill level was hard to judge at a glance,
+    /// which is the bar's only job, and the projection ghost at 30% opacity was close to
+    /// invisible. 10 is roughly what macOS gives its own Battery and Storage meters and
+    /// sits proportionate to the 12pt title beside it.
+    ///
+    /// Chosen by rendering 5, 6, 7, 8, 10, 12 and 16 at real width in the real colours
+    /// rather than by argument. 16 is what a layout bug produced for a release, and it
+    /// dominates the row — it looked good only next to 5.
+    private static let barHeight: CGFloat = 10
+
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -74,8 +84,8 @@ struct WindowRow: View {
                 // fill it. `.frame(height: 5)` binds the GeometryReader, not the content,
                 // so the bar silently swelled to 16pt whenever a projection went past 100%
                 // and pressed down into the label beneath it. An overlay is measured
-                // against its parent and cannot resize it, so the glyphs overhang the 5pt
-                // band without moving anything.
+                // against its parent and cannot resize it, so the glyphs overhang the
+                // bar's band without moving anything.
                 //
                 // Past 100% the fill saturates and stops carrying information — 105% and
                 // 200% drew an identical bar. These sit *outside* the right edge, in the
@@ -97,7 +107,7 @@ struct WindowRow: View {
                     }
                 }
             }
-            .frame(height: 5)
+            .frame(height: Self.barHeight)
 
             // A caret sitting directly under the projected point, so the number is
             // anchored to the place it refers to instead of floating at the margin.
