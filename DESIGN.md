@@ -726,7 +726,8 @@ and locale-dependence makes logs from two machines incomparable.
 ### How it is drawn
 
 A translucent extension of the progress bar reaching the projected point, with a solid
-cap at its end, and a caret directly beneath carrying "projected 61%".
+cap at its end, and a caret directly beneath carrying "projected 61%". Both the cap and the
+caret are dropped past 100% — see below.
 
 Two details that only became obvious once the thing was rendered:
 
@@ -754,6 +755,28 @@ width, so a full bar always means the same quantity. Rescaling the bar to fit 20
 rejected for exactly that reason — the same visual would represent different amounts
 depending on the projection, and the current-usage fill would move for reasons unrelated
 to usage.
+
+**Above 100% the cap is dropped too.** The cap marks where the projection lands, and past
+100% `reach` is clamped to the bar's full width — so it sat on the right edge asserting the
+projection ended there. That is the caret's bug wearing a different shape, kept for a release
+because it was drawn by different code. The chevrons already say "past the end", and they say
+it without pointing at a number that is not the answer.
+
+**The chevrons must be an overlay, not a sibling in the ZStack.** As a sibling they sized it:
+13pt bold glyphs made the stack 16pt tall, and the Capsules — which carry no height of their
+own — grew to fill it. `.frame(height: 5)` binds the GeometryReader, not its content, so the
+bar silently swelled from 5pt to 16pt whenever a projection passed 100%, and pressed down into
+the label beneath. It looked like a padding problem on the label and was not; measuring the
+rendered rows is what found it:
+
+```
+under 100%   5.0pt   5.0pt   5.0pt
+over  100%  16.0pt  16.0pt  16.0pt      <- before
+over  100%   5.0pt   5.0pt   5.0pt      <- after
+```
+
+An overlay is measured against its parent and cannot resize it, so the glyphs overhang the
+5pt band without moving anything.
 
 **Above 100% the caret is dropped.** The first attempt kept it, and it pointed at the
 clamped position — indicating 100% while the label read 200%, which is the original bug

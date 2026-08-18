@@ -47,36 +47,53 @@ struct WindowRow: View {
                         let colour = projectionColour(projection.outlook)
                         let reach = geo.size.width * min(1, Double(projection.projectedPercent) / 100)
                         Capsule().fill(colour.opacity(0.30)).frame(width: reach)
-                        // A solid cap, so the projected end is a definite point rather
-                        // than a fade that could be mistaken for the track.
-                        Capsule()
-                            .fill(colour.opacity(0.9))
-                            .frame(width: 2)
-                            .offset(x: max(0, reach - 2))
-
-                        // Past 100% the fill saturates and stops carrying information,
-                        // so 105% and 200% drew an identical bar. Chevrons sit *outside*
-                        // the right edge, in the popover's padding, which reads as "off
-                        // the end of the scale" and costs the bar no width. Rescaling
-                        // instead would make a full bar mean different things at
-                        // different times.
-                        if projection.projectedPercent > 100 {
-                            let over = projection.projectedPercent - 100
-                            let count = over >= 75 ? 3 : (over >= 25 ? 2 : 1)
-                            HStack(spacing: -2) {
-                                ForEach(0..<count, id: \.self) { _ in
-                                    Text("›").font(.system(size: 13, weight: .bold))
-                                }
-                            }
-                            .foregroundStyle(colour)
-                            .fixedSize()
-                            .offset(x: geo.size.width + 3)
+                        // A solid cap marking where the projection lands — but only while
+                        // it lands somewhere on the bar. Past 100% `reach` is clamped to
+                        // the full width, so the cap would sit on the right edge claiming
+                        // the projection ends there when it does not. That is the caret's
+                        // old bug wearing a different shape, and the caret was dropped for
+                        // it; the chevrons already say "past the end", and they say it
+                        // without pointing at a number that is not the answer.
+                        if projection.projectedPercent <= 100 {
+                            Capsule()
+                                .fill(colour.opacity(0.9))
+                                .frame(width: 2)
+                                .offset(x: max(0, reach - 2))
                         }
                     }
                     if let window {
                         Capsule()
                             .fill(Health.of(window.percent).swiftUIColor)
                             .frame(width: max(3, geo.size.width * min(1, window.utilization)))
+                    }
+                }
+                // Chevrons as an *overlay*, not a sibling in the ZStack.
+                //
+                // Inside the stack they sized it: 13pt bold glyphs made the ZStack 16pt
+                // tall, and the Capsules — which carry no height of their own — grew to
+                // fill it. `.frame(height: 5)` binds the GeometryReader, not the content,
+                // so the bar silently swelled to 16pt whenever a projection went past 100%
+                // and pressed down into the label beneath it. An overlay is measured
+                // against its parent and cannot resize it, so the glyphs overhang the 5pt
+                // band without moving anything.
+                //
+                // Past 100% the fill saturates and stops carrying information — 105% and
+                // 200% drew an identical bar. These sit *outside* the right edge, in the
+                // popover's padding, which reads as "off the end of the scale" and costs
+                // the bar no width. Rescaling instead would make a full bar mean different
+                // things at different times.
+                .overlay(alignment: .leading) {
+                    if let projection, projection.projectedPercent > 100 {
+                        let over = projection.projectedPercent - 100
+                        let count = over >= 75 ? 3 : (over >= 25 ? 2 : 1)
+                        HStack(spacing: -2) {
+                            ForEach(0..<count, id: \.self) { _ in
+                                Text("›").font(.system(size: 13, weight: .bold))
+                            }
+                        }
+                        .foregroundStyle(projectionColour(projection.outlook))
+                        .fixedSize()
+                        .offset(x: geo.size.width + 3)
                     }
                 }
             }
